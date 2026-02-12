@@ -25,6 +25,8 @@ public class ProductService {
     private static final long LOCK_WAIT_TIME = 3;  // 等待鎖的最大時間（秒）
     private static final long LOCK_LEASE_TIME = 10;  // 鎖的持有時間（秒）
 
+    private static final long MAX_RETRIES = 5;
+    private static final long RETRY_DELAY_BASE = 150;
 
     public ProductDTO getProductById(Long productId){
         log.info("QUERY product: {}" , productId);
@@ -39,37 +41,48 @@ public class ProductService {
     }
 
     private ProductDTO getProductWithLock(Long productId){
-        String lockKey = "product:lock:"+productId;
-        RLock lock = lockService.getLock(lockKey);
+       String lockKey = "product:get:lock:"+productId;
 
-        try{
-            boolean acquired = lock.tryLock(LOCK_WAIT_TIME , LOCK_LEASE_TIME, TimeUnit.SECONDS);
-            if(acquired){
-                try{
-                    log.debug("Lock acquired success:{}" , lockKey);
-                    return loadProductFromDB(productId);
-                }finally {
-                    lock.unlock();
-                    log.debug("Release the lock: {}" ,lockKey);
-                }
-            }else{
-                log.debug("Acquire failed, retrying: {}" , lockKey);
-                Thread.sleep(100);
-                ProductDTO cached = productCacheService.get(productId);
-                if(cached!=null){
-                    log.info("Cache hit after retry: {}" , productId);
-                    return cached;
-                }
+       RLock lock = lockService.getLock(lockKey);
 
-                log.warn("Cache miss after retry, query from db: {}" , lockKey);
-                return loadProductFromDB(productId);
-            }
-        }catch (InterruptedException e){
-            Thread.currentThread().interrupt();
-            log.error("Acquired lock is interrupt: {}" ,lockKey );
-            throw new RuntimeException("Query product failed" , e);
-        }
 
+       for(int retry =0 ; retry<=MAX_RETRIES; retry++){
+
+           try{
+               boolean acquired = lock.tryLock(LOCK_WAIT_TIME , LOCK_LEASE_TIME , TimeUnit.SECONDS);
+               if(acquired){
+                   try{
+                       ProductDTO cached = productCacheService.get(productId);
+
+                       if(cached!=null){
+                           return cached;
+                       }
+
+                       return loadProductFromDB(productId);
+                   }finally {
+                       if(lock.isHeldByCurrentThread()){
+                           lock.unlock();
+                       }
+                   }
+               }else{
+                    ProductDTO cached = productCacheService.get(productId);
+
+                   if(cached!=null){
+                       return cached;
+                   }
+
+                   if(retry==MAX_RETRIES){
+                       return loadProductFromDB(productId);
+                   }
+
+               }
+           }catch (InterruptedException e){
+               Thread.currentThread().interrupt();
+               throw new RuntimeException("Error");
+           }
+       }
+
+        throw new RuntimeException("Unexpected error");
 
     }
 
