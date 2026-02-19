@@ -7,9 +7,12 @@ import com.kazama.redis_cache_demo.product.entity.Product;
 import com.kazama.redis_cache_demo.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.concurrent.CircuitBreaker;
 import org.redisson.api.RLock;
 import org.springframework.stereotype.Service;
 
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -21,6 +24,8 @@ public class ProductService {
     private final ProductCacheService productCacheService;
     private final BloomFilterService bloomFilterService;
     private final DistributeLockService lockService;
+
+    private final CircuitBreaker circuitBreaker;
 
     private static final long LOCK_WAIT_TIME = 3;  // 等待鎖的最大時間（秒）
     private static final long LOCK_LEASE_TIME = 10;  // 鎖的持有時間（秒）
@@ -38,6 +43,18 @@ public class ProductService {
         }
 
         return getProductWithLock(productId);
+    }
+
+
+    private void waitWithBackoff(int retryCount) throws InterruptedException {
+        long baseDelay = 50;
+        long maxDelay= 2000;
+
+        long delay = Math.min(baseDelay * (1L << retryCount),maxDelay);
+        long jitter = ThreadLocalRandom.current().nextLong(0,delay/2);
+        Thread.sleep(delay+jitter);
+        log.debug("Retry {} after {}ms", retryCount, delay + jitter);
+
     }
 
     private ProductDTO getProductWithLock(Long productId){
@@ -65,7 +82,8 @@ public class ProductService {
                        }
                    }
                }else{
-                    ProductDTO cached = productCacheService.get(productId);
+                   waitWithBackoff(retry);
+                   ProductDTO cached = productCacheService.get(productId);
 
                    if(cached!=null){
                        return cached;
