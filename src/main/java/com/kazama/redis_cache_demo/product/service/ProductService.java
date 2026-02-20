@@ -3,15 +3,14 @@ package com.kazama.redis_cache_demo.product.service;
 import com.kazama.redis_cache_demo.infra.cache.BloomFilterService;
 import com.kazama.redis_cache_demo.infra.lock.DistributeLockService;
 import com.kazama.redis_cache_demo.product.dto.ProductDTO;
-import com.kazama.redis_cache_demo.product.entity.Product;
 import com.kazama.redis_cache_demo.product.repository.ProductRepository;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.concurrent.CircuitBreaker;
 import org.redisson.api.RLock;
 import org.springframework.stereotype.Service;
 
-import java.util.Random;
+import javax.naming.ServiceUnavailableException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -25,15 +24,17 @@ public class ProductService {
     private final BloomFilterService bloomFilterService;
     private final DistributeLockService lockService;
 
-    private final CircuitBreaker circuitBreaker;
+    private final CircuitBreaker productDBCircuitBreaker;
 
     private static final long LOCK_WAIT_TIME = 3;  // 等待鎖的最大時間（秒）
     private static final long LOCK_LEASE_TIME = 10;  // 鎖的持有時間（秒）
 
     private static final long MAX_RETRIES = 5;
     private static final long RETRY_DELAY_BASE = 150;
+    static final long MAX_RETRY_DELAY= 2000;
 
-    public ProductDTO getProductById(Long productId){
+
+    public ProductDTO getProductById(Long productId) throws ServiceUnavailableException {
         log.info("QUERY product: {}" , productId);
 
         ProductDTO cached = productCacheService.get(productId);
@@ -42,22 +43,24 @@ public class ProductService {
             return cached;
         }
 
+        if(!bloomFilterService.mightContainProduct(productId)){
+            return null ;
+        }
+
         return getProductWithLock(productId);
     }
 
 
     private void waitWithBackoff(int retryCount) throws InterruptedException {
-        long baseDelay = 50;
-        long maxDelay= 2000;
 
-        long delay = Math.min(baseDelay * (1L << retryCount),maxDelay);
+        long delay = Math.min(RETRY_DELAY_BASE * (1L << retryCount),MAX_RETRY_DELAY);
         long jitter = ThreadLocalRandom.current().nextLong(0,delay/2);
         Thread.sleep(delay+jitter);
         log.debug("Retry {} after {}ms", retryCount, delay + jitter);
 
     }
 
-    private ProductDTO getProductWithLock(Long productId){
+    private ProductDTO getProductWithLock(Long productId) throws ServiceUnavailableException {
        String lockKey = "product:get:lock:"+productId;
 
        RLock lock = lockService.getLock(lockKey);
@@ -90,7 +93,7 @@ public class ProductService {
                    }
 
                    if(retry==MAX_RETRIES){
-                       return loadProductFromDB(productId);
+                       throw new RuntimeException("Failed to acquire lock after max retries");
                    }
 
                }
@@ -100,39 +103,38 @@ public class ProductService {
            }
        }
 
+        // unreachable code compiler needed
         throw new RuntimeException("Unexpected error");
 
     }
 
-    private ProductDTO loadProductFromDB(Long productId){
+    private ProductDTO loadProductFromDB(Long productId) throws ServiceUnavailableException {
         log.debug("query from DB");
 
-        Product product = productRepository.findById(productId).orElse(null);
-
-        if(product == null){
-            log.warn("Product does not exists: {}",productId);
-            productCacheService.setNull(productId);
-            return null;
+        if(!productDBCircuitBreaker.tryAcquirePermission()){
+            log.warn("Circuit breaker OPEN, skip DB query for product: {}", productId);
+            throw new ServiceUnavailableException("DB circuit breaker is open");
         }
+        long start = System.currentTimeMillis();
 
-        ProductDTO dto = convertToDto(product);
+        try{
+            ProductDTO productDTO = productRepository.findProductDTOById(productId).orElse(null);
+            long duration = System.currentTimeMillis() - start;
+            productDBCircuitBreaker.onSuccess(duration , TimeUnit.MILLISECONDS);
 
-        productCacheService.set(productId,dto);
+            if(productDTO == null){
+                log.warn("Product does not exists: {}",productId);
+                productCacheService.setNull(productId);
+                return null;
+            }
 
-        log.info("Query product success from the DB then write into cache success: {}" , productId);
-        return dto;
-
-    }
-
-    private ProductDTO convertToDto(Product product){
-        return new ProductDTO(
-                product.getId() ,
-                product.getName(),
-                product.getDescription(),
-                product.getPrice(),
-                product.getImageUrl(),
-                product.getCategory(),
-                product.getIsSeckill()
-                );
+            productCacheService.set(productId,productDTO);
+            log.info("Query product success from the DB then write into cache success: {}" , productId);
+            return productDTO;
+        }catch (Exception e){
+            long duration = System.currentTimeMillis()-start;
+            productDBCircuitBreaker.onError(duration , TimeUnit.MILLISECONDS , e);
+            throw e;
+        }
     }
 }

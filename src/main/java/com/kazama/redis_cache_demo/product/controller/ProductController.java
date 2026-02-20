@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.naming.ServiceUnavailableException;
+
 @RestController
 @RequestMapping("/api/v1/products")
 @RequiredArgsConstructor
@@ -21,7 +23,7 @@ public class ProductController {
 
 
     @GetMapping("/{id}")
-    public ResponseEntity<ProductDTO> getProduct(@PathVariable Long id){
+    public ResponseEntity<ProductDTO> getProduct(@PathVariable Long id) throws ServiceUnavailableException {
         log.info("API request : getProduct :{}" , id);
 
         ProductDTO product = productService.getProductById(id);
