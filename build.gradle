@@ -43,6 +43,7 @@ dependencies {
 
 	// ✅ 改成 2.2 版本（或者直接移除，讓 Spring Boot 管理）
 	implementation 'org.yaml:snakeyaml:2.2'
+	implementation 'io.github.resilience4j:resilience4j-spring-boot3:2.2.0'
 }
 
 tasks.named('test') {
