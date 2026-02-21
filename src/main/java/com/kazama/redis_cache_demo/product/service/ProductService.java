@@ -1,7 +1,7 @@
 package com.kazama.redis_cache_demo.product.service;
 
-import com.kazama.redis_cache_demo.infra.cache.BloomFilterService;
 import com.kazama.redis_cache_demo.infra.cache.CacheResult;
+import com.kazama.redis_cache_demo.infra.bloomfilter.impl.ProductBloomFilterService;
 import com.kazama.redis_cache_demo.infra.lock.DistributeLockService;
 import com.kazama.redis_cache_demo.product.dto.ProductDTO;
 import com.kazama.redis_cache_demo.product.repository.ProductRepository;
@@ -25,7 +25,7 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final ProductCacheService productCacheService;
-    private final BloomFilterService bloomFilterService;
+    private final ProductBloomFilterService productBloomFilterService;
     private final DistributeLockService lockService;
 
     private final CircuitBreaker productDBCircuitBreaker;
@@ -53,7 +53,7 @@ public class ProductService {
             return productDTOCacheResult.value();
         }
 
-        if(!bloomFilterService.mightContainProduct(productId)){
+        if(!productBloomFilterService.mightContain(productId)){
             return null ;
         }
 
