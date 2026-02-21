@@ -1,7 +1,7 @@
 package com.kazama.redis_cache_demo.infra.init.service;
 
 import com.github.javafaker.Faker;
-import com.kazama.redis_cache_demo.infra.cache.BloomFilterService;
+import com.kazama.redis_cache_demo.infra.bloomfilter.impl.ProductBloomFilterService;
 import com.kazama.redis_cache_demo.product.entity.Product;
 import com.kazama.redis_cache_demo.product.enums.ProductCategory;
 import com.kazama.redis_cache_demo.product.repository.ProductRepository;
@@ -12,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.net.URLEncoder;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,7 +25,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class DataInitService {
 
     private final ProductRepository productRepository;
-    private final BloomFilterService bloomFilterService;
+    private final ProductBloomFilterService productBloomFilterService;
 
     private final Faker faker = new Faker(Locale.TRADITIONAL_CHINESE);
     private final Random random = new Random();
@@ -55,7 +54,7 @@ public class DataInitService {
         List<Product> savedProducts = productRepository.saveAll(products);
         log.info("Save {} products successfully" , savedProducts.size());
 
-        bloomFilterService.rebuild();
+        productBloomFilterService.rebuild();
         log.info("Bloom filter rebuild success");
     }
 
