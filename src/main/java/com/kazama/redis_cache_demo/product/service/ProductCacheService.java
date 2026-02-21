@@ -2,11 +2,11 @@ package com.kazama.redis_cache_demo.product.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kazama.redis_cache_demo.infra.cache.CacheResult;
+import com.kazama.redis_cache_demo.infra.cache.Status;
 import com.kazama.redis_cache_demo.product.dto.ProductDTO;
-import com.kazama.redis_cache_demo.product.entity.Product;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -36,28 +36,30 @@ public class ProductCacheService {
         return CACHE_KEY_PREFIX+productId;
     }
 
-    public ProductDTO get(Long productId){
+    public CacheResult<ProductDTO> get(Long productId){
         String key = buildKey(productId);
         String json = redisTemplate.opsForValue().get(key);
 
         if(json==null){
             log.debug("cache is miss :{}" , key);
-            return null;
+            return CacheResult.miss();
         }
 
         if(NULL_CACHE_VALUE.equals(json)){
             log.debug("cache hits NULL value {}" , key);
-            return null;
+            return CacheResult.nullHit();
+
         }
 
         try{
             ProductDTO dto = objectMapper.readValue(json , ProductDTO.class);
             log.debug("cache hit: {}" , key);
-            return dto;
+            return CacheResult.hit(dto);
+
         }catch (JsonProcessingException e){
             log.error("Deserialize failed : {}" , key , e);
             redisTemplate.delete(key);
-            return null;
+            return CacheResult.miss();
         }
     }
 
