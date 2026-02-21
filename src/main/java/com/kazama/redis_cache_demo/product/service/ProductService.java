@@ -1,6 +1,7 @@
 package com.kazama.redis_cache_demo.product.service;
 
 import com.kazama.redis_cache_demo.infra.cache.BloomFilterService;
+import com.kazama.redis_cache_demo.infra.cache.CacheResult;
 import com.kazama.redis_cache_demo.infra.lock.DistributeLockService;
 import com.kazama.redis_cache_demo.product.dto.ProductDTO;
 import com.kazama.redis_cache_demo.product.repository.ProductRepository;
@@ -13,6 +14,9 @@ import org.springframework.stereotype.Service;
 import javax.naming.ServiceUnavailableException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+
+import static com.kazama.redis_cache_demo.infra.cache.Status.HIT;
+import static com.kazama.redis_cache_demo.infra.cache.Status.NULL_HIT;
 
 @Service
 @RequiredArgsConstructor
@@ -37,10 +41,16 @@ public class ProductService {
     public ProductDTO getProductById(Long productId) throws ServiceUnavailableException {
         log.info("QUERY product: {}" , productId);
 
-        ProductDTO cached = productCacheService.get(productId);
-        if(cached !=null){
+        CacheResult<ProductDTO> productDTOCacheResult = productCacheService.get(productId);
+
+        if(NULL_HIT.equals(productDTOCacheResult.status())){
+            log.info("cache hit null val");
+            return null;
+        }
+
+        if(HIT.equals(productDTOCacheResult.status()) ){
             log.info("cache hit: {}" , productId);
-            return cached;
+            return productDTOCacheResult.value();
         }
 
         if(!bloomFilterService.mightContainProduct(productId)){
@@ -72,10 +82,16 @@ public class ProductService {
                boolean acquired = lock.tryLock(LOCK_WAIT_TIME , LOCK_LEASE_TIME , TimeUnit.SECONDS);
                if(acquired){
                    try{
-                       ProductDTO cached = productCacheService.get(productId);
+                       CacheResult<ProductDTO> productDTOCacheResult = productCacheService.get(productId);
 
-                       if(cached!=null){
-                           return cached;
+                       if(NULL_HIT.equals(productDTOCacheResult.status())){
+                           log.info("cache hit null val");
+                           return null;
+                       }
+
+                       if(HIT.equals(productDTOCacheResult.status()) ){
+                           log.info("cache hit: {}" , productId);
+                           return productDTOCacheResult.value();
                        }
 
                        return loadProductFromDB(productId);
@@ -86,10 +102,16 @@ public class ProductService {
                    }
                }else{
                    waitWithBackoff(retry);
-                   ProductDTO cached = productCacheService.get(productId);
+                   CacheResult<ProductDTO> productDTOCacheResult = productCacheService.get(productId);
 
-                   if(cached!=null){
-                       return cached;
+                   if(NULL_HIT.equals(productDTOCacheResult.status())){
+                       log.info("cache hit null val");
+                       return null;
+                   }
+
+                   if(HIT.equals(productDTOCacheResult.status()) ){
+                       log.info("cache hit: {}" , productId);
+                       return productDTOCacheResult.value();
                    }
 
                    if(retry==MAX_RETRIES){
