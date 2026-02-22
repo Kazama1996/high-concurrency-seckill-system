@@ -4,14 +4,20 @@ import com.kazama.redis_cache_demo.infra.cache.CacheResult;
 import com.kazama.redis_cache_demo.infra.bloomfilter.impl.ProductBloomFilterService;
 import com.kazama.redis_cache_demo.infra.lock.DistributeLockService;
 import com.kazama.redis_cache_demo.product.dto.ProductDTO;
+import com.kazama.redis_cache_demo.product.dto.UpdateProductRequest;
+import com.kazama.redis_cache_demo.product.entity.Product;
+import com.kazama.redis_cache_demo.product.events.ProductUpdateEvent;
 import com.kazama.redis_cache_demo.product.repository.ProductRepository;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.naming.ServiceUnavailableException;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -27,6 +33,7 @@ public class ProductService {
     private final ProductCacheService productCacheService;
     private final ProductBloomFilterService productBloomFilterService;
     private final DistributeLockService lockService;
+    private final ApplicationEventPublisher eventPublisher;
 
     private final CircuitBreaker productDBCircuitBreaker;
 
@@ -155,5 +162,36 @@ public class ProductService {
             productDBCircuitBreaker.onError(duration , TimeUnit.MILLISECONDS , e);
             throw e;
         }
+    }
+
+    @Transactional
+    public ProductDTO updateProduct(Long id, UpdateProductRequest request) {
+        if (!productBloomFilterService.mightContain(id)) {
+            return null;
+        }
+
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Product not found: " + id));
+
+        if (request.name() != null) product.setName(request.name());
+        if (request.description() != null) product.setDescription(request.description());
+        if (request.price() != null) product.setPrice(request.price());
+        if (request.imageUrl() != null) product.setImageUrl(request.imageUrl());
+
+        Product saved = productRepository.save(product);
+        eventPublisher.publishEvent(new ProductUpdateEvent(id));
+
+        return toDTO(saved);
+    }
+
+    private ProductDTO toDTO(Product product){
+        return new ProductDTO(
+                product.getId() ,
+                product.getName(),
+                product.getDescription(),
+                product.getPrice(),
+                product.getImageUrl(),
+                product.getCategory(),
+                product.getIsSeckill());
     }
 }
