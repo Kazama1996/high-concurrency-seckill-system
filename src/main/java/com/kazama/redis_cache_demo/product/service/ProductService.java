@@ -78,7 +78,7 @@ public class ProductService {
        RLock lock = lockService.getLock(lockKey);
 
 
-       for(int retry =0 ; retry<=MAX_RETRIES; retry++){
+       for(int retry =0 ; retry<MAX_RETRIES; retry++){
 
            try{
                boolean acquired = lock.tryLock(LOCK_WAIT_TIME , LOCK_LEASE_TIME , TimeUnit.SECONDS);
@@ -115,20 +115,15 @@ public class ProductService {
                        log.info("cache hit: {}" , productId);
                        return productDTOCacheResult.value();
                    }
-
-                   if(retry==MAX_RETRIES){
-                       throw new RuntimeException("Failed to acquire lock after max retries");
-                   }
-
                }
            }catch (InterruptedException e){
                Thread.currentThread().interrupt();
-               throw new RuntimeException("Error");
+               throw new RuntimeException("Interrupted while waiting for lock, productId: " + productId, e);
            }
        }
 
-        // unreachable code compiler needed
-        throw new RuntimeException("Unexpected error");
+        log.error("Failed to acquire lock after {} retries, productId: {}", MAX_RETRIES, productId);
+        throw new RuntimeException("Failed to acquire lock after max retries");
 
     }
 
