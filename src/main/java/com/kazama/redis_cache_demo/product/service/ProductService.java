@@ -41,6 +41,10 @@ public class ProductService {
     public ProductDTO getProductById(Long productId) throws ServiceUnavailableException {
         log.info("QUERY product: {}" , productId);
 
+        if(!productBloomFilterService.mightContain(productId)){
+            return null ;
+        }
+
         CacheResult<ProductDTO> productDTOCacheResult = productCacheService.get(productId);
 
         if(NULL_HIT.equals(productDTOCacheResult.status())){
@@ -53,9 +57,7 @@ public class ProductService {
             return productDTOCacheResult.value();
         }
 
-        if(!productBloomFilterService.mightContain(productId)){
-            return null ;
-        }
+
 
         return getProductWithLock(productId);
     }
