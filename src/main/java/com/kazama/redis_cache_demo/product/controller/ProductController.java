@@ -44,4 +44,14 @@ public class ProductController {
 
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteProduct(@PathVariable Long id){
+        log.info("API request : deleteProduct [id :{}]" , id );
+
+        productService.deleteProductById(id);
+
+        return ResponseEntity.noContent().build();
+
+    }
+
 }
