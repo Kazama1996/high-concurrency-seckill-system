@@ -19,5 +19,15 @@ public class ProductCacheEventListener {
     public void onProductUpdated(ProductUpdateEvent event){
         log.info("DB committed, deleting cache for productId: {}", event.productId());
         productCacheService.delete(event.productId());
+        log.info("UPDATE product success: {}" , event.productId());
+
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onProductDeleted(ProductDeleteEvent event){
+        log.info("DB committed, deleting cache for productId: {}" , event.productId());
+        productCacheService.delete(event.productId());
+        log.info("DELETE product success: {}" , event.productId());
+
     }
 }

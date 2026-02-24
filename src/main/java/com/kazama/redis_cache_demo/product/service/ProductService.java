@@ -6,7 +6,9 @@ import com.kazama.redis_cache_demo.infra.lock.DistributeLockService;
 import com.kazama.redis_cache_demo.product.dto.ProductDTO;
 import com.kazama.redis_cache_demo.product.dto.UpdateProductRequest;
 import com.kazama.redis_cache_demo.product.entity.Product;
+import com.kazama.redis_cache_demo.product.events.ProductDeleteEvent;
 import com.kazama.redis_cache_demo.product.events.ProductUpdateEvent;
+import com.kazama.redis_cache_demo.product.exception.ProductNotFoundException;
 import com.kazama.redis_cache_demo.product.repository.ProductRepository;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
@@ -183,8 +185,24 @@ public class ProductService {
         Product saved = productRepository.save(product);
         eventPublisher.publishEvent(new ProductUpdateEvent(id));
 
-        log.info("UPDATE product success: {}", id);
         return toDTO(saved);
+    }
+
+    @Transactional
+    public void deleteProductById(Long id){
+        log.info("DELETE product: {}" , id);
+
+        if(!productBloomFilterService.mightContain(id)){
+            log.info("DELETE product not found (bloom filter rejected): {}", id);
+            throw  new ProductNotFoundException(id);
+        }
+
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException(id));
+        productRepository.delete(product);
+        log.info("DELETE product from DB success: {}", id);
+        eventPublisher.publishEvent(new ProductDeleteEvent(id));
+
     }
 
     private ProductDTO toDTO(Product product){
