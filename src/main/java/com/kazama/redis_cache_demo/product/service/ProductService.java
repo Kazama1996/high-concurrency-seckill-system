@@ -166,8 +166,10 @@ public class ProductService {
 
     @Transactional
     public ProductDTO updateProduct(Long id, UpdateProductRequest request) {
+        log.info("UPDATE product: {}", id);
+
         if (!productBloomFilterService.mightContain(id)) {
-            return null;
+            throw new RuntimeException("Product not found: " + id);
         }
 
         Product product = productRepository.findById(id)
@@ -181,6 +183,7 @@ public class ProductService {
         Product saved = productRepository.save(product);
         eventPublisher.publishEvent(new ProductUpdateEvent(id));
 
+        log.info("UPDATE product success: {}", id);
         return toDTO(saved);
     }
 
