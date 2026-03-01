@@ -6,5 +6,6 @@ public record UpdateProductRequest(
         String name,
         String description,
         BigDecimal price,
+        Integer stock,
         String imageUrl
 ) {}

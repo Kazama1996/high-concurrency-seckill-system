@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -80,6 +81,10 @@ public class DataInitService {
             product.setPrice(randomPrice(10, 9999));
         }
 
+        //庫存
+        product.setStock(randomStock(10,10000000));
+
+
         // 圖片 URL（使用 placeholder）
         product.setImageUrl("https://via.placeholder.com/400x400?text=" +
                 java.net.URLEncoder.encode(product.getName(), java.nio.charset.StandardCharsets.UTF_8));
@@ -88,7 +93,7 @@ public class DataInitService {
         product.setIsSeckill(isSeckill);
 
         // 時間戳（會自動設定，但這裡手動設定以示範）
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
         product.setCreatedAt(now);
         product.setUpdatedAt(now);
 
@@ -147,6 +152,10 @@ public class DataInitService {
     private BigDecimal randomPrice(int min, int max) {
         double price = ThreadLocalRandom.current().nextDouble(min, max);
         return BigDecimal.valueOf(price).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private Integer randomStock(int min , int max){
+        return ThreadLocalRandom.current().nextInt(min, max);
     }
 
     public void initDefaultData(){
