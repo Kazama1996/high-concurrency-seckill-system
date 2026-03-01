@@ -1,7 +1,10 @@
-package com.kazama.redis_cache_demo.product.repository;
+package com.kazama.redis_cache_demo.seckill.repository;
 
 import com.kazama.redis_cache_demo.product.dto.ProductDTO;
+import com.kazama.redis_cache_demo.product.repository.ProductRowMapper;
 import com.kazama.redis_cache_demo.product.repository.sql.ProductSql;
+import com.kazama.redis_cache_demo.seckill.dto.SeckillActivityDTO;
+import com.kazama.redis_cache_demo.seckill.repository.sql.SeckillActivitySql;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -10,32 +13,20 @@ import java.util.List;
 import java.util.Optional;
 
 @RequiredArgsConstructor
-public class ProductRepositoryCustomImpl implements  ProductRepositoryCustom {
+public class SeckillActivityRepositoryCustomImpl implements SeckillRepositoryCustom{
 
     private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
 
+
     @Override
-    public Optional<ProductDTO> findProductDTOById(Long id) {
+    public Optional<SeckillActivityDTO> findSeckillActivityById(Long id) {
         MapSqlParameterSource params = new MapSqlParameterSource("id", id);
-        List<ProductDTO> results = namedParameterJdbcTemplate.query(
-                ProductSql.GET_PRODUCT_BY_ID,
+        List<SeckillActivityDTO> results = namedParameterJdbcTemplate.query(
+                SeckillActivitySql.GET_SECKILL_ACTIVITIES_BY_ID,
                 params,
-                new ProductRowMapper()
+                new SeckillActivityMapper()
         );
 
         return results.stream().findFirst();
     }
-
-    @Override
-    public void markAsSeckill(List<Long> productIds) {
-
-
-        MapSqlParameterSource params = new MapSqlParameterSource();
-        params.addValue   ("ids", productIds);
-
-
-        namedParameterJdbcTemplate.update(ProductSql.UPDATE_SECKILL_BY_IDS,params);
-    }
-
-
 }

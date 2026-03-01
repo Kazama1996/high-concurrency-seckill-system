@@ -19,6 +19,7 @@ public class ProductRowMapper implements RowMapper<ProductDTO> {
                 rs.getString("name"),
                 rs.getString("description"),
                 rs.getBigDecimal("price"),
+                rs.getInt("stock"),
                 rs.getString("image_url"),
                 ProductCategory.valueOf(rs.getString("category")),
                 rs.getBoolean("is_seckill")

@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.naming.ServiceUnavailableException;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -181,6 +182,7 @@ public class ProductService {
         if (request.description() != null) product.setDescription(request.description());
         if (request.price() != null) product.setPrice(request.price());
         if (request.imageUrl() != null) product.setImageUrl(request.imageUrl());
+        if (request.stock()!=null) product.setStock(request.stock());
 
         Product saved = productRepository.save(product);
         eventPublisher.publishEvent(new ProductUpdateEvent(id));
@@ -211,8 +213,20 @@ public class ProductService {
                 product.getName(),
                 product.getDescription(),
                 product.getPrice(),
+                product.getStock(),
                 product.getImageUrl(),
                 product.getCategory(),
                 product.getIsSeckill());
+    }
+
+    @Transactional
+    public void markAsSeckill(List<Long> productIds) {
+
+
+        productRepository.markAsSeckill(productIds);
+
+        productIds.forEach(id->  eventPublisher.publishEvent(new ProductUpdateEvent(id)));
+
+        log.info("Product {} marked as seckill", productIds);
     }
 }
