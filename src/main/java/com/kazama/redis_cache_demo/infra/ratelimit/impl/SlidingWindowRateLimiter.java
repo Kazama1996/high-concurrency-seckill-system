@@ -4,6 +4,7 @@ import com.kazama.redis_cache_demo.infra.ratelimit.RateLimitType;
 import com.kazama.redis_cache_demo.infra.ratelimit.RateLimiter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -20,22 +21,10 @@ public class SlidingWindowRateLimiter implements RateLimiter {
     private final StringRedisTemplate redisTemplate;
 
     private static final String SLIDING_WINDOW_SCRIPT = """
-            local key = KEYS[1]
-            local now = tonumber(ARGV[1])
-            local window = tonumber(ARGV[2])
-            local limig - tonumber(ARGV[3])
-            local expireTime = now - window * 1000
-            redis.call('ZREMRANGEBYSCORE',key,0,expireTime)
-            local count = redis.call('ZCARD',key)
-            if count >= limit then
-                return 0
-            end
-            redis.call('ZADD',key,now,now)
-            redis.call('EXPIRE',key,window)
-            return 1
+            
             """;
 
-    private final RedisScript<Long> script = new DefaultRedisScript<>(SLIDING_WINDOW_SCRIPT);
+    private final RedisScript<Long> script = RedisScript.of(new ClassPathResource("lua/ratelimit/sliding_window_ratelimiter.lua"), Long.class);
 
     @Override
     public boolean isAllowed(String key, int limit, int windowSeconds) {

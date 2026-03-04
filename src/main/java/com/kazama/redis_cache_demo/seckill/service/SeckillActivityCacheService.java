@@ -8,11 +8,17 @@ import com.kazama.redis_cache_demo.seckill.dto.SeckillActivityDTO;
 import com.kazama.redis_cache_demo.seckill.entity.SeckillActivity;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.aspectj.apache.bcel.util.ClassPath;
+import org.redisson.api.RScript;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.ZonedDateTime;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -25,12 +31,20 @@ public class SeckillActivityCacheService {
 
     private static final String STOCK_KEY_PREFIX = "seckill:stock:";
     private static final String ACTIVITY_KEY_PREFIX = "seckill:activity:";
+    private static final String ORDERS_KEY_PREFIX = "seckill:orders:";
     private static final String NULL_CACHE_VALUE =  "NULL";
     private static final long NULL_CACHE_TTL = 120;
 
+    private static final RedisScript<Long> DEDUCT_STOCK_SCRIPT = RedisScript.of(
+            new ClassPathResource("lua/seckill/deduct_stock.lua"),
+            Long.class
+    );
 
     private String buildStockKey(Long activityId){
         return STOCK_KEY_PREFIX+activityId;
+    }
+    private String buildOrderKey(Long activityId){
+        return ORDERS_KEY_PREFIX+activityId;
     }
     private String buildActivityKey(Long activityId){
         return ACTIVITY_KEY_PREFIX+activityId;
@@ -121,6 +135,24 @@ public class SeckillActivityCacheService {
     }
 
 
+
+    public long deductStock(Long activityId , Long userId){
+        String stockKey = buildStockKey(activityId);
+        String ordersKey = buildOrderKey(activityId);
+
+        Long result = redisTemplate.execute(DEDUCT_STOCK_SCRIPT, Arrays.asList(stockKey, ordersKey), String.valueOf(userId));
+
+
+        if(result ==null){
+            log.warn("Redis execute returned null for activityId: {}", activityId);
+            return -1L;
+        }
+
+        log.debug("Deduct stock for activityId: {}, result: {}", activityId, result);
+
+
+        return result;
+    }
 
 
 }
