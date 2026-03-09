@@ -1,5 +1,6 @@
 package com.kazama.redis_cache_demo.seckill.service;
 
+import com.kazama.redis_cache_demo.infra.bloomfilter.impl.SeckillActivityBloomFilterService;
 import com.kazama.redis_cache_demo.infra.cache.CacheResult;
 import com.kazama.redis_cache_demo.infra.cache.Status;
 import com.kazama.redis_cache_demo.infra.ratelimit.RateLimit;
@@ -13,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.naming.ServiceUnavailableException;
 import java.time.ZonedDateTime;
 
 @Service
@@ -22,8 +24,10 @@ public class SeckillService {
 
     private final SeckillActivityCacheService seckillActivityCacheService;
 
+    private final SeckillActivityService seckillActivityService;
+
     @RateLimit(key="'seckill:user:' + #userId + ':activity:' + #activityId" ,type = RateLimitType.SLIDING_WINDOW)
-    public long deductStock(Long activityId , Long userId){
+    public long deductStock(Long activityId , Long userId) throws ServiceUnavailableException {
         log.debug("Start to  deduct seckill ");
 
         CacheResult<SeckillActivityDTO> activity = seckillActivityCacheService.getActivity(activityId);
@@ -33,13 +37,17 @@ public class SeckillService {
             throw new SeckillActivityNotFoundException("Seckill activity not found: " + activityId);
         }
 
+        SeckillActivityDTO dto;
+
         if (Status.MISS.equals(activity.status())) {
-            throw new SeckillActivityNotFoundException("Seckill activity cache miss, pending re-warm: " + activityId);
+            dto = seckillActivityService.rewarming(activityId);
+        } else {
+            dto = activity.value();
         }
 
         ZonedDateTime now = ZonedDateTime.now();
 
-        if(now.isAfter(activity.value().endTime()) || now.isBefore(activity.value().startTime())){
+        if(now.isAfter(dto.endTime()) || now.isBefore(dto.startTime())){
             throw new SeckillActivityNotFoundException("Seckill Activity is expire"+activityId);
         }
 
