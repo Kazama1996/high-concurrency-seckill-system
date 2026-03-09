@@ -13,6 +13,8 @@ import java.util.List;
 public interface SeckillActivityRepository extends JpaRepository<SeckillActivity , Long> , SeckillRepositoryCustom{
 
 
+    @Query("SELECT p.id FROM Product p")
+    List<Long> findAllIds();
 
     @Query("""
       SELECT s FROM SeckillActivity s

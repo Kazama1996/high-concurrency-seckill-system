@@ -1,6 +1,9 @@
 package com.kazama.redis_cache_demo.seckill.service;
 
 import com.kazama.redis_cache_demo.infra.bloomfilter.impl.ProductBloomFilterService;
+import com.kazama.redis_cache_demo.infra.bloomfilter.impl.SeckillActivityBloomFilterService;
+import com.kazama.redis_cache_demo.infra.cache.CacheResult;
+import com.kazama.redis_cache_demo.infra.lock.DistributeLockService;
 import com.kazama.redis_cache_demo.product.dto.ProductDTO;
 import com.kazama.redis_cache_demo.product.entity.Product;
 import com.kazama.redis_cache_demo.product.exception.InsufficientStockException;
@@ -12,21 +15,29 @@ import com.kazama.redis_cache_demo.seckill.dto.SeckillActivityDTO;
 import com.kazama.redis_cache_demo.seckill.entity.SeckillActivity;
 import com.kazama.redis_cache_demo.seckill.enums.Status;
 import com.kazama.redis_cache_demo.seckill.event.SeckillActivityCreatedEvent;
+import com.kazama.redis_cache_demo.seckill.exception.SeckillActivityNotFoundException;
 import com.kazama.redis_cache_demo.seckill.exception.SeckillActivityOverlappingException;
 import com.kazama.redis_cache_demo.seckill.repository.SeckillActivityRepository;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RLock;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.naming.ServiceUnavailableException;
 import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+
+import static com.kazama.redis_cache_demo.infra.cache.Status.NULL_HIT;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -35,6 +46,8 @@ public class SeckillActivityService {
 
     private final ProductBloomFilterService productBloomFilterService;
 
+    private final SeckillActivityBloomFilterService seckillActivityBloomFilterService;
+
     private final SeckillActivityRepository seckillActivityRepository;
 
     private final ApplicationEventPublisher eventPublisher;
@@ -42,6 +55,145 @@ public class SeckillActivityService {
     private final ProductService productService;
 
     private final ProductRepository productRepository;
+
+    private final SeckillActivityCacheService seckillActivityCacheService;
+
+    private final DistributeLockService lockService;
+
+    private final CircuitBreaker seckillActivityCircuitBreaker;
+
+    private final int MAX_RETRIES =5;
+
+    private static final long LOCK_WAIT_TIME = 3;  // 等待鎖的最大時間（秒）
+    private static final long LOCK_LEASE_TIME = 10;  // 鎖的持有時間（秒）
+
+    private static final long RETRY_DELAY_BASE = 150;
+    static final long MAX_RETRY_DELAY= 2000;
+
+    private void waitWithBackoff(int retryCount) throws InterruptedException {
+
+        long delay = Math.min(RETRY_DELAY_BASE * (1L << retryCount),MAX_RETRY_DELAY);
+        long jitter = ThreadLocalRandom.current().nextLong(0,delay/2);
+        Thread.sleep(delay+jitter);
+        log.debug("Retry {} after {}ms", retryCount, delay + jitter);
+
+    }
+
+    private void writeActivityAndStockIntoCache(SeckillActivityDTO dto){
+
+        long ttl = ChronoUnit.SECONDS.between(ZonedDateTime.now(), dto.endTime());
+
+        if (ttl <= 0) {
+            log.warn("Activity {} already ended, skip cache warming", dto.id());
+            setNullByActivityId(dto.id());
+            throw new SeckillActivityNotFoundException("Activity already ended: " + dto.id());
+        }
+
+        seckillActivityCacheService.setActivity(dto.id() , dto, ttl);
+        seckillActivityCacheService.setStock(dto.id() , dto.remainingStock() , ttl);
+    }
+
+    private void setNullByActivityId(Long activityId){
+        seckillActivityCacheService.setNullActivity(activityId);
+        seckillActivityCacheService.setNullStock(activityId);
+    }
+
+
+    private SeckillActivityDTO loadFormDB(Long activityId) throws ServiceUnavailableException {
+        log.debug("query activity from DB");
+
+
+        if(!seckillActivityCircuitBreaker.tryAcquirePermission()){
+            log.warn("Circuit breaker OPEN, skip DB query for seckill activity: {}" , activityId );
+            throw new ServiceUnavailableException("DB circuit breaker is open");
+        }
+
+        long start = System.currentTimeMillis();
+
+        try{
+            SeckillActivityDTO seckillActivityById = seckillActivityRepository.findSeckillActivityById(activityId)
+                    .orElseGet(() -> {
+                        setNullByActivityId(activityId);
+                        throw new SeckillActivityNotFoundException("Seckill activity not found" + activityId);
+                    });
+            long duration = System.currentTimeMillis() - start;
+            seckillActivityCircuitBreaker.onSuccess(duration , TimeUnit.MILLISECONDS);
+
+
+            writeActivityAndStockIntoCache(seckillActivityById);
+            log.info("Query seckill activity success from the DB then write into cache success: {}" , activityId);
+            return seckillActivityById;
+
+
+        }catch (Exception e){
+            long duration = System.currentTimeMillis()-start;
+            seckillActivityCircuitBreaker.onError(duration , TimeUnit.MILLISECONDS , e);
+            throw  e;
+        }
+
+    }
+
+    private SeckillActivityDTO getSeckillActivityWithLock(Long activityId) throws ServiceUnavailableException {
+        String lockKey ="seckill:activity:rewarm:"+activityId;
+
+        RLock lock = lockService.getLock(lockKey);
+
+
+        for(int retry=0 ; retry< MAX_RETRIES; retry++){
+            try{
+                boolean acquired = lock.tryLock(LOCK_WAIT_TIME , LOCK_LEASE_TIME , TimeUnit.SECONDS);
+                if(acquired){
+                    try{
+                        CacheResult<SeckillActivityDTO> cacheResult = seckillActivityCacheService.getActivity(activityId);
+                        if(NULL_HIT.equals(cacheResult.status())){
+                            throw new SeckillActivityNotFoundException("Seckill activity not found" + activityId);
+                        }else if (com.kazama.redis_cache_demo.infra.cache.Status.HIT.equals(cacheResult.status())) {
+                            return cacheResult.value();
+                        }
+
+                        return loadFormDB(activityId);
+                    }finally {
+                        if(lock.isHeldByCurrentThread()){
+                            lock.unlock();
+                        }
+                    }
+
+                }else{
+                    waitWithBackoff(retry);
+                    CacheResult<SeckillActivityDTO> cacheResult = seckillActivityCacheService.getActivity(activityId);
+                    if(com.kazama.redis_cache_demo.infra.cache.Status.HIT.equals(cacheResult.status())){
+                        return cacheResult.value();
+                    }
+                    if (NULL_HIT.equals(cacheResult.status())) {
+                        throw new SeckillActivityNotFoundException("Seckill activity not found: " + activityId);
+                    }
+                }
+            }catch (InterruptedException e){
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Interrupted while waiting for lock, activityId: " + activityId, e);
+
+            }
+        }
+
+        log.error("Failed to acquire lock after {} retries, productId: {}", MAX_RETRIES, activityId);
+        throw new RuntimeException("Failed to acquire lock after max retries");
+
+    }
+
+
+
+    public SeckillActivityDTO rewarming(Long activityId) throws ServiceUnavailableException {
+
+
+        if(!seckillActivityBloomFilterService.mightContain(activityId)){
+            log.info("Seckill activity does not exists in Seckill activity bloomfilter");
+            setNullByActivityId(activityId);
+            throw new SeckillActivityNotFoundException("Seckill activity does not found"+activityId);
+        }
+        return getSeckillActivityWithLock(activityId);
+
+
+    }
 
 
 
