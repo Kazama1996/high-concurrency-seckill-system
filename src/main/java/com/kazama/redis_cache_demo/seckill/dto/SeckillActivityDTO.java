@@ -11,6 +11,7 @@ public record SeckillActivityDTO(
         BigDecimal seckillPrice,
         Integer totalStock,
         Integer remainingStock,
+        Integer maxQuantityPerOrder,
         ZonedDateTime startTime,
         ZonedDateTime endTime,
         Status status) {

@@ -1,6 +1,8 @@
 package com.kazama.redis_cache_demo.seckill.controller;
 
+import com.kazama.redis_cache_demo.seckill.dto.SeckillRequest;
 import com.kazama.redis_cache_demo.seckill.service.SeckillService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -18,8 +20,8 @@ public class SeckillController {
     private final SeckillService seckillService;
 
     @PostMapping("/deduct")
-    public ResponseEntity<?> seckill(@RequestParam Long userId, @RequestParam Long activityId) throws ServiceUnavailableException {
-        long result = seckillService.deductStock(activityId, userId);
+    public ResponseEntity<?> seckill(@Valid @RequestBody SeckillRequest request) throws ServiceUnavailableException {
+        long result = seckillService.deductStock(request);
         return ResponseEntity.ok(result);
     }
 }

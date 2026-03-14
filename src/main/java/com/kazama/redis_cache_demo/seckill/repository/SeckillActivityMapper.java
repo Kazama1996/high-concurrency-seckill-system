@@ -26,6 +26,7 @@ public class SeckillActivityMapper implements RowMapper<SeckillActivityDTO> {
                 rs.getBigDecimal("seckill_price"),
                 rs.getInt("total_stock"),
                 rs.getInt("remaining_stock"),
+                rs.getInt("max_quantity_per_order"),
                 startTime,
                 endTime,
                 Status.valueOf(rs.getString("status"))

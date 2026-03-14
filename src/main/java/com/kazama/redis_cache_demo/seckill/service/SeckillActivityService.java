@@ -205,6 +205,7 @@ public class SeckillActivityService {
                     .seckillPrice(request.seckillPrice())
                     .totalStock(request.totalStock())
                     .remainingStock(request.totalStock())  // 跟 totalStock 相同
+                    .maxQuantityPerOrder(request.maxQuantityPerOrder())
                     .startTime(request.dateRange().startTime())
                     .endTime(request.dateRange().endTime())
                     .status(Status.PENDING)
@@ -357,6 +358,7 @@ public class SeckillActivityService {
                 activity.getSeckillPrice(),
                 activity.getTotalStock(),
                 activity.getRemainingStock(),
+                activity.getMaxQuantityPerOrder(),
                 activity.getStartTime(),
                 activity.getEndTime(),
                 activity.getStatus());

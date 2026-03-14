@@ -40,6 +40,8 @@ public class SeckillActivity {
 
     private Integer remainingStock;
 
+    private Integer maxQuantityPerOrder;
+
     private ZonedDateTime startTime;
 
     private ZonedDateTime endTime;

@@ -4,6 +4,7 @@ CREATE TABLE seckill_activities (
                                     seckill_price DECIMAL(10, 2) NOT NULL,
                                     total_stock INT NOT NULL,
                                     remaining_stock INT NOT NULL,
+                                    max_quantity_per_order INT NOT NULL,
                                     start_time TIMESTAMPTZ NOT NULL,
                                     end_time TIMESTAMPTZ NOT NULL,
                                     status VARCHAR(20) NOT NULL,
