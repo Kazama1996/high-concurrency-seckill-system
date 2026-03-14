@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kazama.redis_cache_demo.infra.cache.CacheResult;
 import com.kazama.redis_cache_demo.product.dto.ProductDTO;
 import com.kazama.redis_cache_demo.seckill.dto.SeckillActivityDTO;
+import com.kazama.redis_cache_demo.seckill.dto.SeckillRequest;
 import com.kazama.redis_cache_demo.seckill.entity.SeckillActivity;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -136,19 +137,22 @@ public class SeckillActivityCacheService {
 
 
 
-    public long deductStock(Long activityId , Long userId){
-        String stockKey = buildStockKey(activityId);
-        String ordersKey = buildOrderKey(activityId);
+    public long deductStock(SeckillRequest request){
+        String stockKey = buildStockKey(request.activityId());
+        String ordersKey = buildOrderKey(request.activityId());
 
-        Long result = redisTemplate.execute(DEDUCT_STOCK_SCRIPT, Arrays.asList(stockKey, ordersKey), String.valueOf(userId));
+        Long result = redisTemplate.execute(DEDUCT_STOCK_SCRIPT,
+                Arrays.asList(stockKey, ordersKey),
+                String.valueOf(request.userId()) ,
+                String.valueOf(request.quantity()));
 
 
         if(result ==null){
-            log.warn("Redis execute returned null for activityId: {}", activityId);
+            log.warn("Redis execute returned null for activityId: {}", request.activityId());
             return -1L;
         }
 
-        log.debug("Deduct stock for activityId: {}, result: {}", activityId, result);
+        log.debug("Deduct stock for activityId: {}, result: {}", request.activityId(), result);
 
 
         return result;

@@ -7,6 +7,7 @@ import com.kazama.redis_cache_demo.infra.ratelimit.RateLimit;
 import com.kazama.redis_cache_demo.infra.ratelimit.RateLimitType;
 import com.kazama.redis_cache_demo.order.exception.DuplicateOrderException;
 import com.kazama.redis_cache_demo.seckill.dto.SeckillActivityDTO;
+import com.kazama.redis_cache_demo.seckill.dto.SeckillRequest;
 import com.kazama.redis_cache_demo.seckill.exception.SeckillActivityNotFoundException;
 import com.kazama.redis_cache_demo.seckill.exception.SeckillStockExhaustedException;
 import lombok.RequiredArgsConstructor;
@@ -26,9 +27,13 @@ public class SeckillService {
 
     private final SeckillActivityService seckillActivityService;
 
-    @RateLimit(key="'seckill:user:' + #userId + ':activity:' + #activityId" ,type = RateLimitType.SLIDING_WINDOW)
-    public long deductStock(Long activityId , Long userId) throws ServiceUnavailableException {
+    @RateLimit(key="'seckill:user:' + #request.userId() + ':activity:' + #request.activityId()", type = RateLimitType.SLIDING_WINDOW)
+    public long deductStock(SeckillRequest request) throws ServiceUnavailableException {
         log.debug("Start to  deduct seckill ");
+
+        final Long activityId = request.activityId();
+        final Long userId = request.userId();
+        final Integer quantity = request.quantity();
 
         CacheResult<SeckillActivityDTO> activity = seckillActivityCacheService.getActivity(activityId);
 
@@ -45,13 +50,19 @@ public class SeckillService {
             dto = activity.value();
         }
 
+        if (quantity < 1 || quantity > dto.maxQuantityPerOrder()) {
+            throw new IllegalArgumentException(
+                    "Invalid quantity: " + quantity + ", max allowed: " + dto.maxQuantityPerOrder()
+            );
+        }
+
         ZonedDateTime now = ZonedDateTime.now();
 
         if(now.isAfter(dto.endTime()) || now.isBefore(dto.startTime())){
             throw new SeckillActivityNotFoundException("Seckill Activity is expire"+activityId);
         }
 
-        long result = seckillActivityCacheService.deductStock(activityId,userId);
+        long result = seckillActivityCacheService.deductStock(request);
 
 
 
