@@ -4,6 +4,7 @@ import com.kazama.common.snowflake.SnowflakeId;
 import com.kazama.redis_cache_demo.order.enums.OrderStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
@@ -16,6 +17,7 @@ import java.time.Instant;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Orders  {
 
     @Id
@@ -35,6 +37,7 @@ public class Orders  {
     private BigDecimal seckillPrice;
 
     @Enumerated(value = EnumType.STRING)
+    @Column(name = "order_status", columnDefinition = "order_status")
     private OrderStatus orderStatus;
 
 

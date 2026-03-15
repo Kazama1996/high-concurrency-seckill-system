@@ -8,6 +8,7 @@ import java.time.ZonedDateTime;
 public record SeckillActivityDTO(
         Long id,
         Long productId,
+        BigDecimal originalPrice,
         BigDecimal seckillPrice,
         Integer totalStock,
         Integer remainingStock,

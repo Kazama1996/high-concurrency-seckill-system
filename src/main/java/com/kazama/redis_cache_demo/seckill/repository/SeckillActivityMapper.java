@@ -23,6 +23,7 @@ public class SeckillActivityMapper implements RowMapper<SeckillActivityDTO> {
         return new SeckillActivityDTO(
                 rs.getLong("id"),
                 rs.getLong("product_id"),
+                rs.getBigDecimal("original_price"),
                 rs.getBigDecimal("seckill_price"),
                 rs.getInt("total_stock"),
                 rs.getInt("remaining_stock"),

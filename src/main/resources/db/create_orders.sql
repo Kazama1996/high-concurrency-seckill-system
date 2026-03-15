@@ -1,4 +1,3 @@
-CREATE TYPE order_status AS ENUM ('UNPAID', 'PAID', 'CANCELLED', 'EXPIRED');
 CREATE TABLE orders (
                         id                  BIGINT          NOT NULL,
                         user_id             BIGINT          NOT NULL,
@@ -7,7 +6,7 @@ CREATE TABLE orders (
                         quantity            INTEGER         NOT NULL,
                         original_price      DECIMAL(10, 2)  NOT NULL,
                         seckill_price       DECIMAL(10, 2)  NOT NULL,
-                        status              order_status     NOT NULL,
+                        order_status        VARCHAR(50)     NOT NULL,
                         created_at          TIMESTAMPTZ     NOT NULL,
                         updated_at          TIMESTAMPTZ     NOT NULL,
                         CONSTRAINT pk_orders PRIMARY KEY (id)
