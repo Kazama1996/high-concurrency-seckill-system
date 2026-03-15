@@ -28,6 +28,15 @@ spring:
           time_zone: UTC
         order_inserts: true
         order_updates: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.kazama.redis_cache_demo.seckill.event"
 common:
   snowflake:
     worker-id: ${WORKER_ID:1}
@@ -43,10 +52,12 @@ common:
 logging:
   level:
     root: ${LOG_LEVEL_ROOT:INFO}
-    com.kazama: ${LOG_LEVEL_APP:DEBUG}
-    org.hibernate.SQL: ${LOG_LEVEL_SQL:DEBUG}
-    org.hibernate.type.descriptor.sql.BasicBinder: ${LOG_LEVEL_SQL_BINDER:TRACE}
-    org.redisson: ${LOG_LEVEL_REDISSON:DEBUG}
+    com.kazama: ${LOG_LEVEL_APP:INFO}
+    org.hibernate.SQL: ${LOG_LEVEL_SQL:INFO}
+    org.hibernate.type.descriptor.sql.BasicBinder: ${LOG_LEVEL_SQL_BINDER:INFO}
+    org.redisson: ${LOG_LEVEL_REDISSON:WARN}
+    org.apache.kafka: WARN
+    org.springframework.kafka: WARN
 
 server:
   port: ${SERVER_PORT:8080}

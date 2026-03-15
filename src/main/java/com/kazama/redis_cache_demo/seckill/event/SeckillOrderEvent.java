@@ -7,6 +7,6 @@ public record SeckillOrderEvent(
         Long activityId,
         Long productId,
         Long userId,
-        BigDecimal seckillPrice,
-        ZonedDateTime startTime,
-        ZonedDateTime endTime){}
+        Integer quantity,
+        BigDecimal originalPrice,
+        BigDecimal seckillPrice){}

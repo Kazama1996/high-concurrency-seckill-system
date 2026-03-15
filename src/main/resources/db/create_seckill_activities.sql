@@ -1,6 +1,7 @@
 CREATE TABLE seckill_activities (
                                     id BIGINT NOT NULL,
                                     product_id BIGINT NOT NULL,
+                                    original_price DECIMAL(10,2) NOT NULL,
                                     seckill_price DECIMAL(10, 2) NOT NULL,
                                     total_stock INT NOT NULL,
                                     remaining_stock INT NOT NULL,

@@ -34,6 +34,8 @@ public class SeckillActivity {
 
     private Long productId;
 
+    private BigDecimal originalPrice;
+
     private BigDecimal seckillPrice;
 
     private Integer totalStock;
