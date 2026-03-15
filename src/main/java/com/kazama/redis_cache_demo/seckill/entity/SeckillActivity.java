@@ -34,11 +34,15 @@ public class SeckillActivity {
 
     private Long productId;
 
+    private BigDecimal originalPrice;
+
     private BigDecimal seckillPrice;
 
     private Integer totalStock;
 
     private Integer remainingStock;
+
+    private Integer maxQuantityPerOrder;
 
     private ZonedDateTime startTime;
 

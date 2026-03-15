@@ -198,13 +198,18 @@ public class SeckillActivityService {
 
 
 
-    private List<SeckillActivity> buildEntityList(List<CreateSeckillActivityRequest> requests){
+    private List<SeckillActivity> buildEntityList(List<CreateSeckillActivityRequest> requests,Map<Long, Product> productMap){
         return requests.stream().map(request-> {
+
+            Product product = productMap.get(request.productId());
+
             return  SeckillActivity.builder()
                     .productId(request.productId())
+                    .originalPrice(product.getPrice())
                     .seckillPrice(request.seckillPrice())
                     .totalStock(request.totalStock())
                     .remainingStock(request.totalStock())  // 跟 totalStock 相同
+                    .maxQuantityPerOrder(request.maxQuantityPerOrder())
                     .startTime(request.dateRange().startTime())
                     .endTime(request.dateRange().endTime())
                     .status(Status.PENDING)
@@ -222,10 +227,7 @@ public class SeckillActivityService {
         }
     }
 
-    private void validateStock(List<CreateSeckillActivityRequest> requests , List<Long> productIds ){
-        Map<Long, Product> productMap = productRepository.findAllById(productIds)
-                .stream()
-                .collect(Collectors.toMap(Product::getId, p -> p));
+    private void validateStock(List<CreateSeckillActivityRequest> requests , Map<Long, Product> productMap ){
 
         for (CreateSeckillActivityRequest request : requests) {
             Product product = productMap.get(request.productId());
@@ -308,6 +310,11 @@ public class SeckillActivityService {
                 .distinct()
                 .toList();
 
+        Map<Long, Product> productMap = productRepository.findAllById(productIds)
+                .stream()
+                .collect(Collectors.toMap(Product::getId, p -> p));
+
+
         // Step 1 Bloom filter
         validateBloomFilter(requests);
 
@@ -315,13 +322,13 @@ public class SeckillActivityService {
         validateInternalOverlap(requests);
 
         // Step 3  check Product is not out of stock
-        validateStock(requests,productIds);
+        validateStock(requests,productMap);
 
         // Step 4. validate overlap condition in DB
         validateExternalOverlap(requests, productIds);
 
         // Step 5. buildEntityList
-        List<SeckillActivity> seckillActivities = buildEntityList(requests);
+        List<SeckillActivity> seckillActivities = buildEntityList(requests, productMap);
 
         // Step 6 saveAll
         List<SeckillActivity> saved = seckillActivityRepository.saveAll(seckillActivities);
@@ -354,9 +361,11 @@ public class SeckillActivityService {
         return new SeckillActivityDTO(
                 activity.getId(),
                 activity.getProductId(),
+                activity.getOriginalPrice(),
                 activity.getSeckillPrice(),
                 activity.getTotalStock(),
                 activity.getRemainingStock(),
+                activity.getMaxQuantityPerOrder(),
                 activity.getStartTime(),
                 activity.getEndTime(),
                 activity.getStatus());

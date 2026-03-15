@@ -12,5 +12,6 @@ public record CreateSeckillActivityRequest(
         @NotNull  Long productId,
         @NotNull @Min(1) BigDecimal seckillPrice,
         @NotNull @Min(1) Integer totalStock,
+        @NotNull @Min(1) Integer maxQuantityPerOrder,
         @NotNull @Valid FutureDateRange dateRange
 ) {}
