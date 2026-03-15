@@ -7,6 +7,7 @@ import com.kazama.redis_cache_demo.seckill.event.SeckillOrderEvent;
 import com.kazama.redis_cache_demo.seckill.kafka.config.KafkaTopicConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,7 +35,13 @@ public class SeckillOrderConsumer {
                 .build();
 
 
-        orderRepository.save(entity);
+
+        try {
+            orderRepository.save(entity);
+        } catch (DataIntegrityViolationException e) {
+            log.warn("Duplicate order detected, skip. activityId: {}, userId: {}",
+                    event.activityId(), event.userId());
+        }
 
 
         log.debug("create order:  productId:{} , activityId:{} , userId:{} , quantity:{}" , event.productId() , event.activityId(),event.userId() , event.quantity());
