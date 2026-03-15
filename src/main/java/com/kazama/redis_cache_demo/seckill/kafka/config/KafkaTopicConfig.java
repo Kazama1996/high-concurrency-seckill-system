@@ -10,9 +10,11 @@ public class KafkaTopicConfig {
     public static final String CREATE_ORDER_TOPIC_NAME = "seckill.order.created";
     public static final String ORDER_NOTIFICATION_TOPIC_NAME = "seckill.order.notification";
 
+    public static final int NUM_OF_CREATE_ORDER_TOPIC  =3 ;
+
     @Bean
     public NewTopic createOrderTopic(){
-        return new NewTopic(CREATE_ORDER_TOPIC_NAME , 3, (short) 1);
+        return new NewTopic(CREATE_ORDER_TOPIC_NAME , NUM_OF_CREATE_ORDER_TOPIC, (short) 1);
     }
 
     @Bean

@@ -20,7 +20,7 @@ public class SeckillOrderConsumer {
 
     private final OrderRepository orderRepository;
 
-    @KafkaListener(topics = KafkaTopicConfig.CREATE_ORDER_TOPIC_NAME , groupId = "order-group")
+    @KafkaListener(topics = KafkaTopicConfig.CREATE_ORDER_TOPIC_NAME , groupId = "order-group" , concurrency = "" + KafkaTopicConfig.NUM_OF_CREATE_ORDER_TOPIC)
     @Transactional
     public void consumer(SeckillOrderEvent event){
         Orders entity = Orders
