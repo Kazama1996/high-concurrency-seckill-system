@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class SeckillOrderProducer {
 
-    private final KafkaTemplate<String , SeckillOrderEvent> kafkaTemplate;
+    private final KafkaTemplate<String , Object> kafkaTemplate;
 
     public void publishMessage(SeckillOrderEvent seckillOrderEvent){
         kafkaTemplate.send(KafkaTopicConfig.CREATE_ORDER_TOPIC_NAME, seckillOrderEvent)

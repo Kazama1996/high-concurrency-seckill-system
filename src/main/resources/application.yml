@@ -18,7 +18,7 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: ${JPA_DDL_AUTO:none}
-    show-sql: ${JPA_SHOW_SQL:true}
+    show-sql: ${JPA_SHOW_SQL:false}
     properties:
       hibernate:
         format_sql: ${JPA_FORMAT_SQL:true}
@@ -30,13 +30,6 @@ spring:
         order_updates: true
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-    consumer:
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      properties:
-        spring.json.trusted.packages: "com.kazama.redis_cache_demo.seckill.event"
 common:
   snowflake:
     worker-id: ${WORKER_ID:1}
@@ -53,7 +46,7 @@ logging:
   level:
     root: ${LOG_LEVEL_ROOT:INFO}
     com.kazama: ${LOG_LEVEL_APP:INFO}
-    org.hibernate.SQL: ${LOG_LEVEL_SQL:INFO}
+    org.hibernate.SQL: ${LOG_LEVEL_SQL:WARN}
     org.hibernate.type.descriptor.sql.BasicBinder: ${LOG_LEVEL_SQL_BINDER:INFO}
     org.redisson: ${LOG_LEVEL_REDISSON:WARN}
     org.apache.kafka: WARN
