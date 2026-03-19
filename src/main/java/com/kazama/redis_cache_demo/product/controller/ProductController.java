@@ -8,7 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import javax.naming.ServiceUnavailableException;
 
 @RestController
 @RequestMapping("/api/v1/products")
@@ -21,7 +20,7 @@ public class ProductController {
 
 
     @GetMapping("/{id}")
-    public ResponseEntity<ProductDTO> getProduct(@PathVariable Long id) throws ServiceUnavailableException {
+    public ResponseEntity<ProductDTO> getProduct(@PathVariable Long id) {
         log.info("API request : getProduct :{}" , id);
 
         ProductDTO product = productService.getProductById(id);

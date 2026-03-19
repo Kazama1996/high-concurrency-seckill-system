@@ -2,6 +2,7 @@ package com.kazama.redis_cache_demo.product.service;
 
 import com.kazama.redis_cache_demo.infra.cache.CacheResult;
 import com.kazama.redis_cache_demo.infra.bloomfilter.impl.ProductBloomFilterService;
+import com.kazama.redis_cache_demo.infra.exception.ServiceUnavailableException;
 import com.kazama.redis_cache_demo.infra.lock.DistributeLockService;
 import com.kazama.redis_cache_demo.product.dto.ProductDTO;
 import com.kazama.redis_cache_demo.product.dto.UpdateProductRequest;
@@ -14,13 +15,12 @@ import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.naming.ServiceUnavailableException;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -38,6 +38,7 @@ public class ProductService {
     private final DistributeLockService lockService;
     private final ApplicationEventPublisher eventPublisher;
 
+    @Qualifier("productDBCircuitBreaker")
     private final CircuitBreaker productDBCircuitBreaker;
 
     private static final long LOCK_WAIT_TIME = 3;  // 等待鎖的最大時間（秒）
@@ -48,7 +49,7 @@ public class ProductService {
     static final long MAX_RETRY_DELAY= 2000;
 
 
-    public ProductDTO getProductById(Long productId) throws ServiceUnavailableException {
+    public ProductDTO getProductById(Long productId)  {
         log.info("QUERY product: {}" , productId);
 
         if(!productBloomFilterService.mightContain(productId)){
@@ -82,7 +83,7 @@ public class ProductService {
 
     }
 
-    private ProductDTO getProductWithLock(Long productId) throws ServiceUnavailableException {
+    private ProductDTO getProductWithLock(Long productId)  {
        String lockKey = "product:get:lock:"+productId;
 
        RLock lock = lockService.getLock(lockKey);
@@ -137,7 +138,7 @@ public class ProductService {
 
     }
 
-    private ProductDTO loadProductFromDB(Long productId) throws ServiceUnavailableException {
+    private ProductDTO loadProductFromDB(Long productId) {
         log.debug("query from DB");
 
         if(!productDBCircuitBreaker.tryAcquirePermission()){

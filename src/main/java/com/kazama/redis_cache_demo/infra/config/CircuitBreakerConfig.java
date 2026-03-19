@@ -10,9 +10,19 @@ import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 public class CircuitBreakerConfig {
 
 
-    @Bean
+    @Bean("productDBCircuitBreaker")
     public CircuitBreaker productDBCircuitBreaker(CircuitBreakerRegistry registry){
         return registry.circuitBreaker("productDB");
+    }
+
+    @Bean("redisCircuitBreaker")
+    public CircuitBreaker redisCircuitBreaker(CircuitBreakerRegistry registry){
+        return registry.circuitBreaker("redis");
+    }
+
+    @Bean("seckillActivityCircuitBreaker")
+    public CircuitBreaker seckillActivityCircuitBreaker(CircuitBreakerRegistry registry){
+        return registry.circuitBreaker("seckillActivityDB");
     }
 
 

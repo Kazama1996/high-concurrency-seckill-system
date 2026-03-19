@@ -2,6 +2,7 @@ package com.kazama.redis_cache_demo.seckill.service;
 
 import com.kazama.redis_cache_demo.infra.cache.CacheResult;
 import com.kazama.redis_cache_demo.infra.cache.Status;
+import com.kazama.redis_cache_demo.infra.circuitbreaker.annotation.RedisCircuitBreaker;
 import com.kazama.redis_cache_demo.infra.ratelimit.RateLimit;
 import com.kazama.redis_cache_demo.infra.ratelimit.RateLimitType;
 import com.kazama.redis_cache_demo.order.exception.DuplicateOrderException;
@@ -15,7 +16,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import javax.naming.ServiceUnavailableException;
 import java.time.ZonedDateTime;
 
 @Service
@@ -29,8 +29,8 @@ public class SeckillService {
 
     private final SeckillOrderProducer seckillOrderProducer;
 
-    @RateLimit(key="'seckill:user:' + #request.userId() + ':activity:' + #request.activityId()", type = RateLimitType.SLIDING_WINDOW)
-    public long deductStock(SeckillRequest request) throws ServiceUnavailableException {
+
+    public long deductStock(SeckillRequest request) {
         log.debug("Start to  deduct seckill ");
 
         final Long activityId = request.activityId();
