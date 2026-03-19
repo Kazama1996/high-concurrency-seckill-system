@@ -3,6 +3,7 @@ package com.kazama.redis_cache_demo.seckill.service;
 import com.kazama.redis_cache_demo.infra.bloomfilter.impl.ProductBloomFilterService;
 import com.kazama.redis_cache_demo.infra.bloomfilter.impl.SeckillActivityBloomFilterService;
 import com.kazama.redis_cache_demo.infra.cache.CacheResult;
+import com.kazama.redis_cache_demo.infra.exception.ServiceUnavailableException;
 import com.kazama.redis_cache_demo.infra.lock.DistributeLockService;
 import com.kazama.redis_cache_demo.product.dto.ProductDTO;
 import com.kazama.redis_cache_demo.product.entity.Product;
@@ -22,11 +23,11 @@ import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.naming.ServiceUnavailableException;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
@@ -60,6 +61,7 @@ public class SeckillActivityService {
 
     private final DistributeLockService lockService;
 
+    @Qualifier("seckillActivityCircuitBreaker")
     private final CircuitBreaker seckillActivityCircuitBreaker;
 
     private final int MAX_RETRIES =5;
@@ -99,7 +101,7 @@ public class SeckillActivityService {
     }
 
 
-    private SeckillActivityDTO loadFormDB(Long activityId) throws ServiceUnavailableException {
+    private SeckillActivityDTO loadFormDB(Long activityId)  {
         log.debug("query activity from DB");
 
 
@@ -133,7 +135,7 @@ public class SeckillActivityService {
 
     }
 
-    private SeckillActivityDTO getSeckillActivityWithLock(Long activityId) throws ServiceUnavailableException {
+    private SeckillActivityDTO getSeckillActivityWithLock(Long activityId) {
         String lockKey ="seckill:activity:rewarm:"+activityId;
 
         RLock lock = lockService.getLock(lockKey);
@@ -182,7 +184,7 @@ public class SeckillActivityService {
 
 
 
-    public SeckillActivityDTO rewarming(Long activityId) throws ServiceUnavailableException {
+    public SeckillActivityDTO rewarming(Long activityId)  {
 
 
         if(!seckillActivityBloomFilterService.mightContain(activityId)){

@@ -8,6 +8,7 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.springframework.core.annotation.Order;
 import org.springframework.expression.EvaluationContext;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 @Aspect
 @Component
 @Slf4j
+@Order(2)
 public class RateLimitAspect {
 
     private final ExpressionParser parser = new SpelExpressionParser();
