@@ -4,6 +4,8 @@ package com.kazama.redis_cache_demo.infra.schedule.job;
 import com.kazama.redis_cache_demo.infra.outbox.entity.Outbox;
 import com.kazama.redis_cache_demo.infra.outbox.enums.OutboxStatus;
 import com.kazama.redis_cache_demo.infra.outbox.repository.OutboxRepository;
+import com.kazama.redis_cache_demo.order.entity.OrderCreatedOutbox;
+import com.kazama.redis_cache_demo.order.repository.OrderCreatedOutboxRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.quartz.Job;
@@ -18,7 +20,7 @@ import java.util.List;
 public class OutboxPollingJob implements Job {
 
 
-    private final OutboxRepository outboxRepository;
+    private final OrderCreatedOutboxRepository orderCreatedOutboxRepository;
 
     private final KafkaTemplate<String ,String> kafkaTemplate;
 
@@ -28,7 +30,7 @@ public class OutboxPollingJob implements Job {
 
 
 
-        List<Outbox> pendingOutbox = outboxRepository.findByStatus(OutboxStatus.PENDING);
+        List<OrderCreatedOutbox> pendingOutbox = orderCreatedOutboxRepository.findByStatus(OutboxStatus.PENDING);
 
         if(pendingOutbox.isEmpty()) return;
 
@@ -41,11 +43,11 @@ public class OutboxPollingJob implements Job {
                         } else {
                             outbox.setStatus(OutboxStatus.SENT);
                         }
-                        outboxRepository.save(outbox);
+                        orderCreatedOutboxRepository.save(outbox);
                     });
         });
 
-        log.info("OutboxPollingJob triggered, found {} pending records", pendingOutbox.size());
+        log.info("OrderCreatedOutbox polling triggered, found {} pending records", pendingOutbox.size());
 
 
 

@@ -85,6 +85,24 @@ resilience4j:
         failureRateThreshold: 50
         waitDurationInOpenState: 10s
         permittedNumberOfCallsInHalfOpenState: 3
+      orderDB:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+
+  retry:
+    instances:
+      orderCreation:
+        maxAttempts: 5
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        exponentialMaxWaitDuration: 5s
+        ignoreExceptions:
+          - org.springframework.dao.DataIntegrityViolationException
+          - org.springframework.dao.InvalidDataAccessApiUsageException
+
 
 seckill:
   warmup:
