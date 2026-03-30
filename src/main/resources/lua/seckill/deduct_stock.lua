@@ -7,7 +7,7 @@ end
 local quantity = tonumber(ARGV[2])
 
 if stock <  quantity then
-    return 0
+    return -3
 end
 
 local successOrder = redis.call('SADD' , KEYS[2] , ARGV[1])

@@ -91,7 +91,7 @@ public class SeckillService {
             throw new DuplicateOrderException("Order is duplicate for activity " + activityId + ", userId: " + userId);
         }
 
-        if (result == 0L) {
+        if (result == -3L) {
             throw new SeckillStockExhaustedException("Stock exhausted for activity: " + activityId);
         }
 
