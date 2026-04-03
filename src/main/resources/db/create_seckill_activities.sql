@@ -1,4 +1,4 @@
-CREATE TABLE seckill_activities (
+CREATE TABLE IF NOT EXISTS seckill_activities (
                                     id BIGINT NOT NULL,
                                     product_id BIGINT NOT NULL,
                                     original_price DECIMAL(10,2) NOT NULL,
@@ -14,5 +14,5 @@ CREATE TABLE seckill_activities (
                                     PRIMARY KEY (id)
 );
 
-CREATE INDEX idx_product_status ON seckill_activities (product_id, status);
-CREATE INDEX idx_start_time ON seckill_activities (start_time);
+CREATE INDEX IF NOT EXISTS idx_product_status ON seckill_activities (product_id, status);
+CREATE INDEX IF NOT EXISTS idx_start_time ON seckill_activities (start_time);

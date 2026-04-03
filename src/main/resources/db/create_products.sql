@@ -1,4 +1,4 @@
-CREATE TABLE products (
+CREATE TABLE IF NOT EXISTS products (
                           id BIGINT NOT NULL,
                           name VARCHAR(200) NOT NULL,
                           description TEXT,
@@ -12,4 +12,4 @@ CREATE TABLE products (
                           PRIMARY KEY (id)
 );
 
-CREATE INDEX idx_category_seckill ON products (category, is_seckill);
+CREATE INDEX IF NOT EXISTS idx_category_seckill ON products (category, is_seckill);
