@@ -12,6 +12,78 @@ The system addresses three fundamental problems in this domain:
 
 To solve these, the system combines **atomic Redis Lua scripts** for stock deduction, a **synchronous order creation flow with the Outbox Pattern** to guarantee at-least-once delivery via Kafka, and **Resilience4j circuit breakers** to prevent cascading failures under load. Cache protection strategies (cache penetration, breakdown, and avalanche) are applied at the product query layer.
 
+## How to Run
+
+### Prerequisites
+- Docker & Docker Compose
+
+### Steps
+
+**1. Clone the repository**
+```bash
+git clone https://github.com/Kazama1996/high-concurrency-seckill-system.git
+cd high-concurrency-seckill-system
+```
+
+**2. Configure environment variables**
+```bash
+cp .env.example .env
+```
+Edit `.env` and fill in your credentials (PostgreSQL, Redis, pgAdmin passwords).
+
+**3. Start all services**
+```bash
+docker compose up -d
+```
+
+PostgreSQL, Redis, Kafka, and the Spring Boot application will all start. Database tables are created automatically on first startup. Wait until all services are healthy:
+```bash
+docker compose ps
+```
+
+**4. Import the Postman collection**
+
+Import `docs/postman/seckill-system.postman_collection.json` into Postman.
+
+**5. Initialize test data**
+
+Call **Auto Init** under the `Data Init` folder. The response includes `productIds` — copy one for the next step.
+
+**6. Create a seckill Activities**
+
+Call **Create Seckill Activities** under the `Seckill Activity` folder with the following body:
+
+```json
+{
+  "productId": <productId from step 5>,
+  "seckillPrice": 99,
+  "totalStock": 100,
+  "maxQuantityPerOrder": 2,
+  "dateRange": {
+    "startTime": <2 minutes from now, e.g. 2026-04-04T12:02:00+08:00>,
+    "endTime": <at least 1 hour from now, e.g. 2026-04-04T13:00:00+08:00>
+  }
+}
+```
+
+> `startTime` must be a future time. Set it 2 minutes ahead — cache warming triggers 1 minute before start. Set `endTime` at least 1 hour out to keep the Redis cache valid throughout testing. The `id` field in the response is the `activityId` used in the next step.
+
+**7. Submit a seckill request**
+
+After `startTime` is reached, call **Deduct Stock** under the `Seckill` folder. Pass the `activityId` from step 6 and any Long integer as `userId` (e.g. `12345`). There is no user table — `userId` is used solely for idempotency (same user cannot win the same activity twice).
+
+To simulate multiple users competing, use different `userId` values across requests.
+
+**8. Verify the result**
+
+Call **Diagnose Seckill Stock** under the `Diagnostic` folder with the `activityId` from step 6 to confirm remaining stock and order creation.
+
+| Service | URL |
+|---|---|
+| Spring Boot API | http://localhost:8080 |
+| Kafka UI | http://localhost:8090 |
+| pgAdmin | http://localhost:5050 |
+
 ## Architecture
 
 ![Architecture](docs/images/architecture.svg)

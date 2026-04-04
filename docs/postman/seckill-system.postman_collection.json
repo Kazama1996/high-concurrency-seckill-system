@@ -1,0 +1,242 @@
+{
+  "info": {
+    "_postman_id": "264c1212-9469-4adc-aa2b-f467134b6c0e",
+    "name": "seckill-system",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "25489732",
+    "_collection_link": "https://go.postman.co/collection/25489732-264c1212-9469-4adc-aa2b-f467134b6c0e?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Data Init",
+      "item": [
+        {
+          "name": "Auto Init",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "localhost:8080/api/v1/dev/init/products/default",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "dev",
+                "init",
+                "products",
+                "default"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Specify total And seckill",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "localhost:8080/api/v1/dev/init/products?total=10000",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "dev",
+                "init",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "total",
+                  "value": "10000"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Diagnostic",
+      "item": [
+        {
+          "name": "Diagnose Seckill Stock",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "localhost:8080/api/v1/dev/diagnostic/seckill/2033108162911014912",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "dev",
+                "diagnostic",
+                "seckill",
+                "2033108162911014912"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Product",
+      "item": [
+        {
+          "name": "getById",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "localhost:8080/api/v1/products/2040443407964442624",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "2040443407964442624"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Product",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\":\"testName1\",\n    \"description\":\"testDescription\",\n    \"price\":20000,\n    \"imageUrl\":\"http://testImage.png\",\n    \"stock\":100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "localhost:8080/api/v1/products/2028087999220289536",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "2028087999220289536"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "deleteById",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "localhost:8080/api/v1/products/2025256937934950403",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "2025256937934950403"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Seckill",
+      "item": [
+        {
+          "name": "Seckill Activity",
+          "item": [
+            {
+              "name": "Create Seckill Activities",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "[   {\n        \"productId\": 2040443407964442624,\n        \"seckillPrice\": 100,\n        \"totalStock\": 10000,\n        \"maxQuantityPerOrder\":10,\n        \"dateRange\":{\n            \"startTime\":\"2026-04-04T22:59:00+08:00\",\n            \"endTime\": \"2030-03-11T17:00:00+08:00\"\n        }\n    },\n    {\n        \"productId\": 2040443407985414144,\n        \"seckillPrice\": 99.99,\n        \"totalStock\": 1000,\n        \"maxQuantityPerOrder\":2,\n        \"dateRange\":{\n            \"startTime\":\"2026-04-04T22:59:00+08:00\",\n            \"endTime\": \"2030-03-11T17:00:00+08:00\"\n        }\n    },\n    {\n        \"productId\": 2040443407985414145,\n        \"seckillPrice\": 199.66,\n        \"totalStock\": 100,\n        \"maxQuantityPerOrder\":1,\n        \"dateRange\":{\n            \"startTime\":\"2026-04-04T22:59:00+08:00\",\n            \"endTime\": \"2030-03-11T17:00:00+08:00\"\n        }\n    }\n   \n]",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "localhost:8080/api/v1/seckill/activities",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8080",
+                  "path": [
+                    "api",
+                    "v1",
+                    "seckill",
+                    "activities"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Deduct Stock",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"activityId\":2040443681219153920,\n    \"userId\": 4,\n    \"quantity\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "localhost:8080/api/v1/seckill/deduct",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "seckill",
+                "deduct"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
