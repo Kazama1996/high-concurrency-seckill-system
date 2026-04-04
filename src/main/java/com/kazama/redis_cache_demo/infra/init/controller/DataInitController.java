@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -27,37 +28,33 @@ public class DataInitController {
         log.info("trigger default data initialization");
 
         long startTime = System.currentTimeMillis();
-        dataInitService.initDefaultData();
+        List<Long> productIds = dataInitService.initDefaultData();
         long duration = System.currentTimeMillis() - startTime;
 
-        return ResponseEntity.ok(Map.of("success",true,
-                "message" ,"success initialization 1000 products(10 seckill included)" ,
-                "duration",duration+"ms"));
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Initialized 10 products. Use productIds to create seckill activities.",
+                "duration", duration + "ms",
+                "productIds", productIds
+        ));
 
     }
 
 
     @PostMapping("/products")
     public ResponseEntity<Map<String,Object>> initProducts(
-            @RequestParam(defaultValue = "1000") int total,
-            @RequestParam(defaultValue = "10") int seckill){
+            @RequestParam(defaultValue = "1000") int total){
 
-        log.info("Trigger custom size data initialization: total={}, seckill={}" , total,seckill);
-
-        if(seckill > total){
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success",false,
-                    "message","seckill size can not  > total size"
-            ));
-        }
+        log.info("Trigger custom size data initialization: total={}" , total);
 
         long startTime = System.currentTimeMillis();
-        dataInitService.initProducts(total ,seckill);
+        List<Long> productIds = dataInitService.initProducts(total);
         long duration = System.currentTimeMillis()-startTime;
 
         return ResponseEntity.ok(Map.of("success",true,
-                "message" ,"success initialization" + total+ "products(" + seckill + " seckill included)" ,
-                "duration",duration+"ms"));
+                "message" ,"success initialization" + total+ "products" ,
+                "duration",duration+"ms",
+                "productIds", productIds));
 
     }
 

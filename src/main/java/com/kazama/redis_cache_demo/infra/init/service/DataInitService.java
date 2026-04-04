@@ -33,8 +33,8 @@ public class DataInitService {
 
 
     @Transactional
-    public void initProducts(int count , int seckillCount){
-        log.info("Start to initlize, counts:{} , seckillCount:{}" , count , seckillCount);
+    public List<Long> initProducts(int count){
+        log.info("Start to initlize, counts:{}" , count);
 
         long existingCount= productRepository.count();
         if(existingCount>0){
@@ -44,22 +44,24 @@ public class DataInitService {
 
         List<Product> products = new ArrayList<>();
 
-        for(int i =0 ; i< count - seckillCount; i++){
-            products.add(createRandomProduct(false));
-        }
-
-        for(int i=0 ; i< seckillCount;i++){
-            products.add(createRandomProduct(true));
+        for(int i =0 ; i< count; i++){
+            products.add(createRandomProduct());
         }
 
         List<Product> savedProducts = productRepository.saveAll(products);
         log.info("Save {} products successfully" , savedProducts.size());
 
+        List<Long> seckillProductIds = savedProducts.stream()
+                .map(Product::getId)
+                .toList();
+
         productBloomFilterService.rebuild();
         log.info("Bloom filter rebuild success");
+
+        return seckillProductIds;
     }
 
-    private Product createRandomProduct(boolean isSeckill){
+    private Product createRandomProduct(){
 
         Product product = new Product();
 
@@ -74,12 +76,7 @@ public class DataInitService {
         product.setDescription(faker.lorem().sentence(10));
 
         // 價格
-        if (isSeckill) {
-            // 秒殺商品價格較低
-            product.setPrice(randomPrice(1, 99));
-        } else {
-            product.setPrice(randomPrice(10, 9999));
-        }
+        product.setPrice(randomPrice(10, 9999));
 
         //庫存
         product.setStock(randomStock(10,10000000));
@@ -90,7 +87,7 @@ public class DataInitService {
                 java.net.URLEncoder.encode(product.getName(), java.nio.charset.StandardCharsets.UTF_8));
 
         // 是否秒殺
-        product.setIsSeckill(isSeckill);
+        product.setIsSeckill(false); // default
 
         // 時間戳（會自動設定，但這裡手動設定以示範）
         Instant now = Instant.now();
@@ -158,8 +155,8 @@ public class DataInitService {
         return ThreadLocalRandom.current().nextInt(min, max);
     }
 
-    public void initDefaultData(){
-        initProducts(1000,10);
+    public List<Long> initDefaultData(){
+        return initProducts(10);
     }
 
 
