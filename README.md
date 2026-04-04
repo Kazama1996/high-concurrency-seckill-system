@@ -12,7 +12,7 @@ The system addresses three fundamental problems in this domain:
 
 To solve these, the system combines **atomic Redis Lua scripts** for stock deduction, a **synchronous order creation flow with the Outbox Pattern** to guarantee at-least-once delivery via Kafka, and **Resilience4j circuit breakers** to prevent cascading failures under load. Cache protection strategies (cache penetration, breakdown, and avalanche) are applied at the product query layer.
 
-## How to Run
+## Getting Started
 
 ### Prerequisites
 - Docker & Docker Compose
