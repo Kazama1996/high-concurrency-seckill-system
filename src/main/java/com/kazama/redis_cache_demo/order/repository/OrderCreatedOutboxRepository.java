@@ -13,4 +13,6 @@ public interface OrderCreatedOutboxRepository extends JpaRepository<OrderCreated
 
     List<OrderCreatedOutbox> findByStatus(OutboxStatus status);
 
+
+
 }

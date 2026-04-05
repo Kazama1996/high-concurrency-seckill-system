@@ -158,5 +158,18 @@ public class SeckillActivityCacheService {
         return result;
     }
 
+    public void reset(Long activityId , long totalStock , long ttl){
+        String stockKey = buildStockKey(activityId);
+        redisTemplate.opsForValue().set(stockKey, String.valueOf(totalStock), Duration.ofSeconds(ttl));
+
+        String ordersKey = buildOrderKey(activityId);
+        redisTemplate.delete(ordersKey);
+
+        log.info("Reset activity {} stock to {}", activityId, totalStock);
+
+
+
+    }
+
 
 }
