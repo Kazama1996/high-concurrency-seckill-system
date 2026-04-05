@@ -51,3 +51,9 @@ out/
 ### OS files ###
 .DS_Store       # ← Mac 的隱藏檔
 Thumbs.db       # ← Windows 的縮圖快取
+
+
+### Jmeter related
+*.log
+*.jtl
+jmeter.log

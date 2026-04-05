@@ -60,6 +60,30 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "ResetAPI",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "localhost:8080/api/v1/dev/init/seckill/2040696197810884609/reset",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "dev",
+                "init",
+                "seckill",
+                "2040696197810884609",
+                "reset"
+              ]
+            }
+          },
+          "response": []
         }
       ]
     },
@@ -72,7 +96,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "localhost:8080/api/v1/dev/diagnostic/seckill/2033108162911014912",
+              "raw": "localhost:8080/api/v1/dev/diagnostic/seckill/2040684669317550081",
               "host": [
                 "localhost"
               ],
@@ -83,7 +107,7 @@
                 "dev",
                 "diagnostic",
                 "seckill",
-                "2033108162911014912"
+                "2040684669317550081"
               ]
             }
           },
@@ -181,7 +205,7 @@
                 "header": [],
                 "body": {
                   "mode": "raw",
-                  "raw": "[   {\n        \"productId\": 2040443407964442624,\n        \"seckillPrice\": 100,\n        \"totalStock\": 10000,\n        \"maxQuantityPerOrder\":10,\n        \"dateRange\":{\n            \"startTime\":\"2026-04-04T22:59:00+08:00\",\n            \"endTime\": \"2030-03-11T17:00:00+08:00\"\n        }\n    },\n    {\n        \"productId\": 2040443407985414144,\n        \"seckillPrice\": 99.99,\n        \"totalStock\": 1000,\n        \"maxQuantityPerOrder\":2,\n        \"dateRange\":{\n            \"startTime\":\"2026-04-04T22:59:00+08:00\",\n            \"endTime\": \"2030-03-11T17:00:00+08:00\"\n        }\n    },\n    {\n        \"productId\": 2040443407985414145,\n        \"seckillPrice\": 199.66,\n        \"totalStock\": 100,\n        \"maxQuantityPerOrder\":1,\n        \"dateRange\":{\n            \"startTime\":\"2026-04-04T22:59:00+08:00\",\n            \"endTime\": \"2030-03-11T17:00:00+08:00\"\n        }\n    }\n   \n]",
+                  "raw": "[   {\n        \"productId\": 2040696077283364864,\n        \"seckillPrice\": 100,\n        \"totalStock\": 10000,\n        \"maxQuantityPerOrder\":10,\n        \"dateRange\":{\n            \"startTime\":\"2026-04-05T15:42:00+08:00\",\n            \"endTime\": \"2030-03-11T17:00:00+08:00\"\n        }\n    },\n    {\n        \"productId\": 2040696077308530688,\n        \"seckillPrice\": 99.99,\n        \"totalStock\": 1000,\n        \"maxQuantityPerOrder\":2,\n        \"dateRange\":{\n            \"startTime\":\"2026-04-05T15:42:00+08:00\",\n            \"endTime\": \"2030-03-11T17:00:00+08:00\"\n        }\n    },\n    {\n        \"productId\": 2040696077308530689,\n        \"seckillPrice\": 199.66,\n        \"totalStock\": 100,\n        \"maxQuantityPerOrder\":1,\n        \"dateRange\":{\n            \"startTime\":\"2026-04-05T15:42:00+08:00\",\n            \"endTime\": \"2030-03-11T17:00:00+08:00\"\n        }\n    }\n   \n]",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -213,7 +237,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"activityId\":2040443681219153920,\n    \"userId\": 4,\n    \"quantity\": 10\n}",
+              "raw": "{\n    \"activityId\":2040684669317550082,\n    \"userId\": 4,\n    \"quantity\": 1\n}",
               "options": {
                 "raw": {
                   "language": "json"

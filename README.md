@@ -173,3 +173,28 @@ The **double-check** on lock acquisition further reduces unnecessary DB queries:
 | Persistence | PostgreSQL | Orders, Outbox, Products, SeckillActivities |
 | ORM | Spring Data JPA + NamedParameterJdbcTemplate | Repository layer |
 | Load Testing | Apache JMeter | Concurrency verification |
+
+
+## Load Test Results
+
+Load tests were run using Apache JMeter against the `POST /api/v1/seckill/deduct` endpoint, with all services running in Docker on a local machine (Apple M4 Pro, 48GB RAM).
+
+> Note: Docker on macOS runs through a Linux virtualization layer, which adds overhead compared to native Linux deployment. Results reflect local development environment performance.
+
+### Oversell prevention under concurrent load
+
+| Concurrent Users | Total Stock | Throughput | Avg Latency | Error % | Oversell |
+|---|---|---|---|---|---|
+| 1,000 | 100 | 1,000 req/sec | 23ms | 90% | None |
+| 10,000 | 1,000 | 2,242 req/sec | 2,339ms | 90% | None |
+| 10,000 | 100 | 2,715 req/sec | 1,563ms | 99% | None |
+
+**Error % is expected behavior** — 90% of requests are rejected with `409 Conflict` (stock exhausted). Only the exact number of winning requests equal to `totalStock` result in confirmed orders.
+
+Both scenarios verified via Diagnostic API (`ordersCreated <= totalStock`, `isValid: true`).
+
+### Observations
+
+- Under low concurrency (1,000 users), avg latency stays at 23ms — the Lua script atomic deduction keeps the hot path lean.
+- Under high concurrency (10,000 users), throughput scales to 2,242 req/sec but latency increases to 2,339ms due to Redis single-thread queuing and DB connection pool saturation (`DB_POOL_MAX_SIZE=10`).
+- Zero oversell in both scenarios confirms the correctness of the atomic Lua stock deduction and idempotency check.
