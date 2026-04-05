@@ -1,14 +1,12 @@
 package com.kazama.redis_cache_demo.infra.init.controller;
 
 import com.kazama.redis_cache_demo.infra.init.service.DataInitService;
+import com.kazama.redis_cache_demo.seckill.service.SeckillActivityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
@@ -21,6 +19,8 @@ import java.util.Map;
 public class DataInitController {
 
     private final DataInitService dataInitService;
+
+    private final SeckillActivityService seckillActivityService;
 
 
     @PostMapping("products/default")
@@ -56,6 +56,17 @@ public class DataInitController {
                 "duration",duration+"ms",
                 "productIds", productIds));
 
+    }
+
+
+    @DeleteMapping("/seckill/{activityId}/reset")
+    public ResponseEntity<Map<String, Object>> resetSeckillActivity(@PathVariable Long activityId) {
+        log.info("Reset seckill activity: {}", activityId);
+        seckillActivityService.resetActivity(activityId);
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Activity " + activityId + " reset successfully"
+        ));
     }
 
 }

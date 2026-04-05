@@ -5,6 +5,8 @@ import com.kazama.redis_cache_demo.infra.bloomfilter.impl.SeckillActivityBloomFi
 import com.kazama.redis_cache_demo.infra.cache.CacheResult;
 import com.kazama.redis_cache_demo.infra.exception.ServiceUnavailableException;
 import com.kazama.redis_cache_demo.infra.lock.DistributeLockService;
+import com.kazama.redis_cache_demo.order.repository.OrderCreatedOutboxRepository;
+import com.kazama.redis_cache_demo.order.repository.OrderRepository;
 import com.kazama.redis_cache_demo.product.dto.ProductDTO;
 import com.kazama.redis_cache_demo.product.entity.Product;
 import com.kazama.redis_cache_demo.product.exception.InsufficientStockException;
@@ -63,6 +65,10 @@ public class SeckillActivityService {
 
     @Qualifier("seckillActivityCircuitBreaker")
     private final CircuitBreaker seckillActivityCircuitBreaker;
+
+    private final OrderRepository orderRepository;
+
+    private final OrderCreatedOutboxRepository orderCreatedOutboxRepository;
 
     private final int MAX_RETRIES =5;
 
@@ -371,5 +377,22 @@ public class SeckillActivityService {
                 activity.getStartTime(),
                 activity.getEndTime(),
                 activity.getStatus());
+    }
+
+    @Transactional
+    public void resetActivity(Long activityId){
+        SeckillActivity activity = seckillActivityRepository.findById(activityId)
+                .orElseThrow(()-> new SeckillActivityNotFoundException("Seckill activity not found: " + activityId));
+
+        activity.setRemainingStock(activity.getTotalStock());
+
+        long ttl = ChronoUnit.SECONDS.between(ZonedDateTime.now(), activity.getEndTime());
+
+        seckillActivityCacheService.reset(activityId , activity.getTotalStock(), ttl);
+
+        seckillActivityRepository.save(activity);
+
+        orderRepository.deleteBySeckillActivityId(activityId);
+
     }
 }

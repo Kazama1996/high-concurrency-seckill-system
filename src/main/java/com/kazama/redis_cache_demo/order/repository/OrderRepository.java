@@ -13,4 +13,7 @@ public interface OrderRepository extends JpaRepository<Orders,Long> {
 
     @Query("SELECT COUNT(o.id) FROM Orders o WHERE o.seckillActivityId = :activityId")
     public Integer findCountByActivityId(@Param("activityId") Long activityId);
+
+
+    void deleteBySeckillActivityId(Long activityId);
 }

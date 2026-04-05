@@ -21,4 +21,10 @@ public class SeckillActivityExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ErrorResponse.of(HttpStatus.BAD_REQUEST.value() , e.getMessage()));
     }
+
+    @ExceptionHandler(SeckillStockExhaustedException.class)
+    public ResponseEntity<ErrorResponse> handleSeckillStockExhausted(SeckillStockExhaustedException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of(HttpStatus.CONFLICT.value() , e.getMessage()));
+    }
 }
