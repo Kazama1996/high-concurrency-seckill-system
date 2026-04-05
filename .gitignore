@@ -57,3 +57,5 @@ Thumbs.db       # ← Windows 的縮圖快取
 *.log
 *.jtl
 jmeter.log
+docs/jmeter-report/
+docs/jmeter/*.jtl

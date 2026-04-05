@@ -49,9 +49,9 @@ Import `docs/postman/seckill-system.postman_collection.json` into Postman.
 
 Call **Auto Init** under the `Data Init` folder. The response includes `productIds` — copy one for the next step.
 
-**6. Create a seckill Activities**
+**6. Create a seckill activity**
 
-Call **Create Seckill Activities** under the `Seckill Activity` folder with the following body:
+Call **Create Seckill Activity** under the `Seckill Activity` folder with the following body:
 
 ```json
 {
@@ -111,7 +111,6 @@ The `getProductById` method defends against all three classic cache failure mode
 
 **Circuit breaker** — The DB call is wrapped in a Resilience4j circuit breaker. If the DB is unavailable, the circuit opens and a `ServiceUnavailableException` is thrown immediately, preventing thread exhaustion from pile-up queries.
 
-
 ## Key Design Decisions
 
 ### 1. Why Outbox Pattern (not direct Kafka publish)
@@ -156,7 +155,6 @@ Redisson's `RLock` uses a watchdog that automatically renews the lease while the
 
 The **double-check** on lock acquisition further reduces unnecessary DB queries: if thread A populated the cache while thread B was waiting for the lock, thread B finds the value on its post-lock cache peek and returns immediately — no duplicate DB read required.
 
-
 ## Tech Stack
 
 | Category | Technology | Purpose |
@@ -174,27 +172,47 @@ The **double-check** on lock acquisition further reduces unnecessary DB queries:
 | ORM | Spring Data JPA + NamedParameterJdbcTemplate | Repository layer |
 | Load Testing | Apache JMeter | Concurrency verification |
 
-
 ## Load Test Results
 
-Load tests were run using Apache JMeter against the `POST /api/v1/seckill/deduct` endpoint, with all services running in Docker on a local machine (Apple M4 Pro, 48GB RAM).
-
+Load tests were conducted using Apache JMeter, with all services running in Docker on a local machine (Apple M4 Pro, 48GB RAM).
 > Note: Docker on macOS runs through a Linux virtualization layer, which adds overhead compared to native Linux deployment. Results reflect local development environment performance.
 
-### Oversell prevention under concurrent load
+---
 
-| Concurrent Users | Total Stock | Throughput | Avg Latency | Error % | Oversell |
-|---|---|---|---|---|---|
-| 1,000 | 100 | 1,000 req/sec | 23ms | 90% | None |
-| 10,000 | 1,000 | 2,242 req/sec | 2,339ms | 90% | None |
-| 10,000 | 100 | 2,715 req/sec | 1,563ms | 99% | None |
+### getProductById — Cache hit performance
 
-**Error % is expected behavior** — 90% of requests are rejected with `409 Conflict` (stock exhausted). Only the exact number of winning requests equal to `totalStock` result in confirmed orders.
+2,000 concurrent users hitting the product query endpoint. After an initial cache miss populates Redis, subsequent requests are served entirely from cache — no further DB queries involved.
 
-Both scenarios verified via Diagnostic API (`ordersCreated <= totalStock`, `isValid: true`).
+| Metric | Value |
+|---|---|
+| Concurrent Users | 2,000 |
+| Throughput | 1,021 req/sec |
+| Avg Latency | 4.56ms |
+| 99th Percentile | 51.99ms |
+| Error % | 0% |
+
+![getProductById JMeter Report](docs/images/jmeter-get-product.png)
+
+---
+
+### deductStock — Oversell prevention under extreme concurrency
+
+10,000 concurrent users competing for 100 items (100:1 competition ratio). The Lua script atomic deduction ensures correctness — exactly 100 orders created, zero oversell.
+
+| Concurrent Users | Total Stock | Throughput | Avg Latency | 99th Percentile | Error % | Oversell |
+|---|---|---|---|---|---|---|
+| 1,000 | 100 | 1,000 req/sec | 23ms | — | 90% | None |
+| 10,000 | 1,000 | 2,242 req/sec | 2,339ms | — | 90% | None |
+| 10,000 | 100 | 3,238 req/sec | 309ms | 1,422ms | 99% | None |
+
+**Error % is expected behavior** — requests exceeding available stock are rejected with `409 Conflict`. Only the exact number of winning requests equal to `totalStock` result in confirmed orders, verified via Diagnostic API (`ordersCreated <= totalStock`, `isValid: true`).
+
+![deductStock JMeter Report](docs/images/jmeter-deduct-stock.png)
+
+---
 
 ### Observations
 
-- Under low concurrency (1,000 users), avg latency stays at 23ms — the Lua script atomic deduction keeps the hot path lean.
-- Under high concurrency (10,000 users), throughput scales to 2,242 req/sec but latency increases to 2,339ms due to Redis single-thread queuing and DB connection pool saturation (`DB_POOL_MAX_SIZE=10`).
-- Zero oversell in both scenarios confirms the correctness of the atomic Lua stock deduction and idempotency check.
+- `getProductById` at 4.56ms avg confirms the Redis cache is effectively absorbing all read traffic after the initial warm-up — DB is not involved in steady-state reads.
+- `deductStock` latency under extreme load (10,000 users) is driven by Redis single-thread queuing — all Lua script executions are serialized. DB connection pool size has negligible impact at this concurrency level.
+- Zero oversell across all scenarios confirms the correctness of the atomic Lua stock deduction and idempotency check.
