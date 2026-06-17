@@ -42,31 +42,36 @@ A production-grade flash sale (seckill) system demonstrating high-concurrency pa
 
 ## Running the Project
 
-### Full Docker Compose (recommended)
+The compose setup is split into two files:
+- `docker-compose.yml` — infrastructure only (PostgreSQL, Redis, Kafka, Kafka-UI, pgAdmin)
+- `docker-compose.app.yml` — Spring Boot app only (joins the infra network as external)
 
-Starts all services: PostgreSQL, Redis, Kafka, Kafka-UI, pgAdmin, and the Spring Boot app.
+### Full stack (infra + app)
 
 ```bash
-docker compose up --build
+docker compose up -d && docker compose -f docker-compose.app.yml up --build
 ```
 
 App is available at `http://localhost:8080`.
 
-### Local Spring Boot (external services via Docker)
-
-Start only infrastructure:
+### Infra only + local Spring Boot (recommended for development)
 
 ```bash
-docker compose up postgres redis kafka -d
-```
+# Start infrastructure
+docker compose up -d
 
-Then run the app (Spring profile defaults to `local`):
-
-```bash
+# Run the app locally (local profile enables dev/diagnostic endpoints)
 ./gradlew bootRun
 ```
 
-The `local` profile enables dev/diagnostic endpoints and sets `SPRING_PROFILES_ACTIVE=local`.
+### App container only (infra already running)
+
+```bash
+docker compose -f docker-compose.app.yml up --build
+```
+
+> `docker-compose.app.yml` expects the network `redis-cache-demo_app-network` to exist,
+> which is created automatically when `docker compose up` starts the infra stack.
 
 ---
 
