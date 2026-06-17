@@ -323,3 +323,43 @@ curl -X DELETE http://localhost:8080/api/v1/dev/init/seckill/1/reset
 ### DB schema
 Auto-applied on startup via `spring.sql.init`. SQL files live in `src/main/resources/db/`.
 Set `JPA_DDL_AUTO=create` on first run, then switch to `none`.
+
+---
+
+## Git Workflow
+
+### Branch naming
+
+| Prefix | Use for |
+|---|---|
+| `feature/` | New features (`feature/seckill-deduct-stock-via-lua`) |
+| `fix/` | Bug fixes (`fix/lua-stock-deduction-ambiguous-return-code`) |
+| `refactor/` | Refactoring without behaviour change (`refactor/circuitbreaker-cleanup-directory`) |
+| `docs/` | Documentation only (`docs/readme`) |
+| `chore/` | Build, deps, tooling |
+
+### Commit message convention (Conventional Commits)
+
+```
+<type>: <short imperative summary>
+
+Optional body explaining why, not what.
+```
+
+Types: `feat`, `fix`, `refactor`, `docs`, `chore`, `test`
+
+Examples from this repo:
+```
+feat: add reset seckill activity API for load testing
+fix: resolve ambiguous return code 0 in Lua stock deduction script
+refactor: move CircuitBreakerConfig to their respective domain packages
+docs: finalize README with load test results and observations
+```
+
+### Flow
+
+1. Branch off `main`: `git checkout -b feature/your-feature`
+2. Commit with conventional commit messages
+3. Rebase onto `main` before pushing: `git rebase main`
+4. Open a PR into `main`
+5. Merge via GitHub PR (squash or merge commit — both used in this repo)
