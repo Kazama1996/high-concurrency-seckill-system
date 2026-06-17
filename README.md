@@ -34,11 +34,13 @@ Edit `.env` and fill in your credentials (PostgreSQL, Redis, pgAdmin passwords).
 **3. Start all services**
 ```bash
 docker compose up -d
+docker compose -f docker-compose.app.yml up --build -d
 ```
 
 PostgreSQL, Redis, Kafka, and the Spring Boot application will all start. Database tables are created automatically on first startup. Wait until all services are healthy:
 ```bash
 docker compose ps
+docker compose -f docker-compose.app.yml ps
 ```
 
 **4. Import the Postman collection**

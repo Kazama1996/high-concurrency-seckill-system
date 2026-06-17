@@ -110,36 +110,6 @@ services:
     networks:
       - app-network
 
-  app:
-    build: .
-    container_name: seckill-app
-    ports:
-      - "8080:8080"
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: redis_cache_demo
-      DB_USERNAME: ${POSTGRES_USER}
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-      REDIS_DATABASE: 0
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      JPA_DDL_AUTO: ${JPA_DDL_AUTO}
-      JPA_SHOW_SQL: ${JPA_SHOW_SQL}
-      JPA_FORMAT_SQL: ${JPA_FORMAT_SQL}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    restart: unless-stopped
-    networks:
-      - app-network
-
 volumes:
   postgres_data:
     driver: local
