@@ -4,6 +4,8 @@ import com.kazama.redis_cache_demo.infra.cache.CacheResult;
 import com.kazama.redis_cache_demo.infra.bloomfilter.impl.ProductBloomFilterService;
 import com.kazama.redis_cache_demo.infra.exception.ServiceUnavailableException;
 import com.kazama.redis_cache_demo.infra.lock.DistributeLockService;
+import com.kazama.redis_cache_demo.infra.util.RandomGenerator;
+import com.kazama.redis_cache_demo.infra.util.Sleeper;
 import com.kazama.redis_cache_demo.product.dto.ProductDTO;
 import com.kazama.redis_cache_demo.product.dto.UpdateProductRequest;
 import com.kazama.redis_cache_demo.product.entity.Product;
@@ -21,7 +23,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.kazama.redis_cache_demo.infra.cache.Status.HIT;
@@ -37,6 +38,8 @@ public class ProductService {
     private final ProductBloomFilterService productBloomFilterService;
     private final DistributeLockService lockService;
     private final ApplicationEventPublisher eventPublisher;
+    private final Sleeper sleeper;
+    private final RandomGenerator randomGenerator;
 
     @Qualifier("productDBCircuitBreaker")
     private final CircuitBreaker productDBCircuitBreaker;
@@ -77,8 +80,8 @@ public class ProductService {
     private void waitWithBackoff(int retryCount) throws InterruptedException {
 
         long delay = Math.min(RETRY_DELAY_BASE * (1L << retryCount),MAX_RETRY_DELAY);
-        long jitter = ThreadLocalRandom.current().nextLong(0,delay/2);
-        Thread.sleep(delay+jitter);
+        long jitter = randomGenerator.nextLong(delay/2);
+        sleeper.sleep(delay+jitter);
         log.debug("Retry {} after {}ms", retryCount, delay + jitter);
 
     }
