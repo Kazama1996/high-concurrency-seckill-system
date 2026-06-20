@@ -4,6 +4,8 @@ import com.kazama.redis_cache_demo.infra.bloomfilter.impl.ProductBloomFilterServ
 import com.kazama.redis_cache_demo.infra.cache.CacheResult;
 import com.kazama.redis_cache_demo.infra.exception.ServiceUnavailableException;
 import com.kazama.redis_cache_demo.infra.lock.DistributeLockService;
+import com.kazama.redis_cache_demo.infra.util.RandomGenerator;
+import com.kazama.redis_cache_demo.infra.util.Sleeper;
 import com.kazama.redis_cache_demo.product.dto.ProductDTO;
 import com.kazama.redis_cache_demo.product.enums.ProductCategory;
 import com.kazama.redis_cache_demo.product.repository.ProductRepository;
@@ -34,6 +36,8 @@ class ProductServiceTest {
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private CircuitBreaker productDBCircuitBreaker;
     @Mock private RLock rLock;
+    @Mock private Sleeper sleeper;
+    @Mock private RandomGenerator randomGenerator;
 
     @InjectMocks private ProductService productService;
 
