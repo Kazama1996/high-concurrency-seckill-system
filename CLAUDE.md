@@ -358,8 +358,23 @@ docs: finalize README with load test results and observations
 
 ### Flow
 
-1. Branch off `main`: `git checkout -b feature/your-feature`
+1. Sync and branch off `main`:
+```bash
+   git checkout main
+   git pull origin main
+   git checkout -b feature/your-feature
+```
 2. Commit with conventional commit messages
-3. Rebase onto `main` before pushing: `git rebase main`
-4. Open a PR into `main`
+3. Before pushing, sync with latest `main` and rebase:
+```bash
+   git checkout main
+   git pull origin main
+   git checkout feature/your-feature
+   git rebase main
+```
+> If conflicts occur during rebase, stop and ask the user how to resolve them — do not resolve automatically.
+4. Push and open a PR into `main`:
+```bash
+   git push origin feature/your-feature
+```
 5. Merge via GitHub PR (squash or merge commit — both used in this repo)
