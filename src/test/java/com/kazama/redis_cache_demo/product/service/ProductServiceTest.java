@@ -12,6 +12,7 @@ import com.kazama.redis_cache_demo.product.repository.ProductRepository;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -19,6 +20,7 @@ import org.redisson.api.RLock;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -38,6 +40,7 @@ class ProductServiceTest {
     @Mock private RLock rLock;
     @Mock private Sleeper sleeper;
     @Mock private RandomGenerator randomGenerator;
+    ArgumentCaptor<Long> delayCaptor = ArgumentCaptor.forClass(Long.class);
 
     @InjectMocks private ProductService productService;
 
@@ -168,5 +171,50 @@ class ProductServiceTest {
         assertSame(dto, result);
         verifyNoInteractions(productRepository);
         verify(rLock).unlock();
+    }
+
+    @Test
+    void getProductById_cacheMiss_lockNotAcquired_retryThenCacheHit() throws InterruptedException {
+
+        ProductDTO dto =sampleProduct();
+        when(productBloomFilterService.mightContain(PRODUCT_ID)).thenReturn(true);
+        when(productCacheService.get(PRODUCT_ID))
+                .thenReturn(CacheResult.miss())   // getProductById 外层第一次查
+                .thenReturn(CacheResult.hit(dto)); // retry=0 进入 else 分支,waitWithBackoff 后查的那
+        when(lockService.getLock(anyString())).thenReturn(rLock);
+        when(rLock.tryLock(anyLong() , anyLong(), any(TimeUnit.class))).thenReturn(false);
+        when(randomGenerator.nextLong(anyLong())).thenReturn(0L);
+
+
+        ProductDTO result = productService.getProductById(PRODUCT_ID);
+
+        assertSame(dto , result);
+
+        verifyNoInteractions(productRepository);
+        verify(rLock, times(1)).tryLock(anyLong(), anyLong(), any(TimeUnit.class));
+        verify(sleeper).sleep(150L);
+
+    }
+
+
+    @Test
+    void getProductById_cacheMiss_lockNotAcquired_reachMaxRetries() throws InterruptedException {
+
+        when(productBloomFilterService.mightContain(PRODUCT_ID)).thenReturn(true);
+        when(productCacheService.get(PRODUCT_ID)).thenReturn(CacheResult.miss());
+        when(lockService.getLock(anyString())).thenReturn(rLock);
+        when(rLock.tryLock(anyLong(),anyLong(),any(TimeUnit.class))).thenReturn(false);
+        when(randomGenerator.nextLong(anyLong())).thenReturn(0L);
+
+
+        assertThrows(RuntimeException.class ,()-> productService.getProductById(PRODUCT_ID));
+
+        verify(rLock, times(5)).tryLock(anyLong(), anyLong(), any(TimeUnit.class));
+        verify(sleeper, times(5)).sleep(delayCaptor.capture());
+        verify(rLock, never()).unlock();
+
+        List<Long> capturedDelays = delayCaptor.getAllValues();
+        assertEquals(List.of(150L, 300L, 600L, 1200L, 2000L), capturedDelays);
+
     }
 }
