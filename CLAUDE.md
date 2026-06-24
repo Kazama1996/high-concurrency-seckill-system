@@ -181,8 +181,15 @@ src/main/java/com/kazama/redis_cache_demo/
     ├── cache/              # CacheResult<T> wrapper (HIT / MISS / NULL_HIT)
     ├── circuitbreaker/     # @ProductDBCircuitBreaker, @RedisCircuitBreaker, etc. (annotations)
     ├── lock/               # DistributedLockService (Redisson RLock with watchdog)
+    ├── outbox/
+    │   ├── config/         # OutboxQuartzConfig (JobDetail/Trigger for outbox polling)
+    │   ├── entity/         # Outbox
+    │   ├── enums/          # OutboxStatus
+    │   └── repository/     # OutboxRepository
     ├── ratelimit/          # @RateLimit AOP + sliding window Lua script
     ├── schedule/
+    │   ├── config/         # QuartzConfig (JobFactory/SchedulerFactoryBean/Scheduler — pure infra),
+    │   │                   # AutowiringSpringBeanJobFactory
     │   └── job/            # SeckillCacheWarmingJob (Quartz), OutboxPollingJob (Quartz, every 5s)
     ├── diagnostic/         # DiagnosticController + DiagnosticService
     └── init/               # DataInitController + DataInitService (seed data)
@@ -269,6 +276,8 @@ POST /api/v1/seckill/deduct
 
 ### Outbox Pattern
 Order creation and outbox record insertion share a single `@Transactional` boundary in `OrderService`. Quartz polls every 5 seconds for `PENDING` records and publishes to Kafka — no dual-write risk.
+
+Quartz infrastructure (`JobFactory`, `SchedulerFactoryBean`, `Scheduler`) lives in `infra/schedule/config/QuartzConfig`, kept free of any job-specific definitions. Each feature owns its own `JobDetail`/`Trigger` beans in its own `config` package (e.g. `infra/outbox/config/OutboxQuartzConfig`), following this repo's package-by-feature convention — mirrors how `order/config`, `product/config`, `seckill/config` each hold their own `CircuitBreakerConfig`. `schedulerFactoryBean` accepts `JobDetail[]`/`Trigger[]` so new jobs are auto-collected without modifying that bean method.
 
 ### Circuit Breaker Topology (Resilience4j)
 Four independent circuit breakers, each with: sliding window size 10, failure threshold 50%, open-state wait 10s, 3 half-open probe calls.
@@ -361,18 +370,21 @@ docs: finalize README with load test results and observations
 1. Sync and branch off `main`:
 ```bash
    git checkout main
-   git pull origin main
+   git fetch origin
+   git reset --hard origin/main
    git checkout -b feature/your-feature
 ```
 2. Commit with conventional commit messages
 3. Before pushing, sync with latest `main` and rebase:
 ```bash
    git checkout main
-   git pull origin main
+   git fetch origin
+   git reset --hard origin/main
    git checkout feature/your-feature
    git rebase main
 ```
 > If conflicts occur during rebase, stop and ask the user how to resolve them — do not resolve automatically.
+> `main` is never modified directly — it is always force-aligned to `origin/main` via `fetch` + `reset --hard`, never `pull`, since `main` represents the team's agreed-upon stable baseline and should never carry local merge commits or stray changes.
 4. Push and open a PR into `main`:
 ```bash
    git push origin feature/your-feature
