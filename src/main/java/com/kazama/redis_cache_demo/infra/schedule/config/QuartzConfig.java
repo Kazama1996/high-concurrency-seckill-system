@@ -21,37 +21,17 @@ public class QuartzConfig {
 
     @Bean
     public SchedulerFactoryBean schedulerFactoryBean(SpringBeanJobFactory jobFactory,
-                                                     JobDetail outboxPollingJobDetail,
-                                                     Trigger outboxPollingTrigger) {
+                                                     JobDetail[] jobDetails,
+                                                     Trigger[] triggers) {
         SchedulerFactoryBean factory = new SchedulerFactoryBean();
         factory.setJobFactory(jobFactory);
-        factory.setJobDetails(outboxPollingJobDetail);
-        factory.setTriggers(outboxPollingTrigger);
+        factory.setJobDetails(jobDetails);
+        factory.setTriggers(triggers);
         return factory;
     }
     @Bean
     public Scheduler scheduler(SchedulerFactoryBean factory){
         return factory.getScheduler();
     }
-
-
-    @Bean
-    public JobDetail outboxPollingJobDetail() {
-        return JobBuilder.newJob(OutboxPollingJob.class)
-                .withIdentity("outboxPollingJob", "outbox")
-                .storeDurably()
-                .build();
-    }
-
-    @Bean
-    public Trigger outboxPollingTrigger(JobDetail outboxPollingJobDetail) {
-        return TriggerBuilder.newTrigger()
-                .forJob(outboxPollingJobDetail)
-                .withIdentity("outboxPollingTrigger", "outbox")
-                .withSchedule(SimpleScheduleBuilder.repeatSecondlyForever(5))
-                .build();
-    }
-
-
 
 }
