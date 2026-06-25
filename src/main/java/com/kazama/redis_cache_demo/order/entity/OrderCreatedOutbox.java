@@ -26,6 +26,8 @@ public class OrderCreatedOutbox {
     @SnowflakeId
     private Long id;
 
+    private Long orderId;
+
     private String topicName;
 
     @Column(columnDefinition = "jsonb")
