@@ -24,17 +24,19 @@ public class OutboxPollingJob implements Job {
 
     private final OutboxPublisherService outboxPublisherService;
 
+    private static final List<OutboxStatus> RETRYABLE_STATUSES = List.of(OutboxStatus.PENDING, OutboxStatus.FAILED);
+
 
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
 
-        List<OrderCreatedOutbox> pendingOutbox = orderCreatedOutboxRepository.findByStatus(OutboxStatus.PENDING);
+        List<OrderCreatedOutbox> pendingOutbox = orderCreatedOutboxRepository.findByStatusIn(RETRYABLE_STATUSES);
 
         if(pendingOutbox.isEmpty()) return;
 
         pendingOutbox.forEach(outboxPublisherService::publish);
 
-        log.info("OrderCreatedOutbox polling triggered, found {} pending records", pendingOutbox.size());
+        log.info("OrderCreatedOutbox polling triggered, found {} pending/failed records", pendingOutbox.size());
 
     }
 }

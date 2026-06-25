@@ -35,6 +35,9 @@ public class OrderCreatedOutbox {
     @Enumerated(value = EnumType.STRING)
     private OutboxStatus status;
 
+    @Builder.Default
+    private Integer retryCount = 0;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
