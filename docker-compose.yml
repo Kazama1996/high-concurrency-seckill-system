@@ -110,6 +110,25 @@ services:
     networks:
       - app-network
 
+  app:
+    build: .
+    container_name: seckill-app
+    profiles: ["app"]
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env.container
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-network
+
 volumes:
   postgres_data:
     driver: local

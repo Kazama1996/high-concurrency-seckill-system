@@ -40,13 +40,17 @@ out/
 ### Environment files ###
 .env
 .env.local
+.env.infra
+.env.container
 .env.prod
 .env.*.local
 *.env
 
-### keep example ###
-!.env.example
 
+### keep example ###
+!.env.infra.example
+!.env.local.example
+!.env.container.example
 
 ### OS files ###
 .DS_Store       # ← Mac 的隱藏檔
