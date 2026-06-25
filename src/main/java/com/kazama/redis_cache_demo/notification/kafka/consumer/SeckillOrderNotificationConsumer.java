@@ -2,6 +2,7 @@ package com.kazama.redis_cache_demo.notification.kafka.consumer;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kazama.redis_cache_demo.infra.idempotency.NotificationIdempotencyService;
 import com.kazama.redis_cache_demo.seckill.event.SeckillOrderEvent;
 import com.kazama.redis_cache_demo.seckill.kafka.config.KafkaTopicConfig;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component;
 public class SeckillOrderNotificationConsumer {
 
     private final ObjectMapper objectMapper;
+    private final NotificationIdempotencyService idempotencyService;
 
     // TODO: replace with actual user service lookup when user table is available
     @KafkaListener(
@@ -29,7 +31,13 @@ public class SeckillOrderNotificationConsumer {
             log.error("Failed to deserialize notification payload, skip. payload: {}", payload, e);
             return;
         }
+
+        if (!idempotencyService.tryMarkProcessed(orderEvent.id())) {
+            log.info("Duplicate notification for orderId: {}, skip", orderEvent.id());
+            return;
+        }
+
         String email = orderEvent.userId() + "@gmail.com";
-        log.info("Sending notification to: {}, activityId: {}", email, orderEvent.activityId());
+        log.info("Sending notification to: {}, orderId: {}, activityId: {}", email, orderEvent.id(), orderEvent.seckillActivityId());
     }
 }
