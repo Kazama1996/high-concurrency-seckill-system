@@ -23,55 +23,77 @@ A production-grade flash sale (seckill) system demonstrating high-concurrency pa
 
 ## Environment Setup
 
-1. Copy the example env file and fill in credentials:
-   ```bash
-   cp .env.example .env
-   ```
+Env config is split into three files, by which process reads them:
 
-2. Required variables (see `.env.example` for all defaults):
+| File | Read by | Hostnames |
+|---|---|---|
+| `.env.infra` | `docker compose` (via `make`), for postgres/redis/kafka/pgadmin container env | — |
+| `.env.container` | the `app` service in `docker-compose.yml`, when running the app in a container | container hostnames (`postgres`, `redis`, `kafka`) |
+| `.env.local` | IntelliJ EnvFile plugin, when running the app as a local JVM process | `localhost` |
 
-   | Variable | Description |
-   |---|---|
-   | `DB_USERNAME` / `DB_PASSWORD` | PostgreSQL credentials |
-   | `REDIS_PASSWORD` | Redis auth password |
-   | `PGADMIN_EMAIL` / `PGADMIN_PASSWORD` | pgAdmin UI login (Docker only) |
-   | `JPA_DDL_AUTO` | Set to `create` on first run, then `none` |
-   | `SECKILL_WARMUP_MINUTES_BEFORE` | Minutes before seckill to warm cache (default: `60`, use `1` for local testing) |
+Each has a corresponding `.example` template checked into git. Copy and fill in credentials:
+```bash
+cp .env.infra.example .env.infra
+cp .env.container.example .env.container
+cp .env.local.example .env.local
+```
+
+Key variables (see each `.example` file for the full list):
+
+| Variable | Description |
+|---|---|
+| `DB_USERNAME` / `DB_PASSWORD` (`.env.container` / `.env.local`), `POSTGRES_USER` / `POSTGRES_PASSWORD` (`.env.infra`) | PostgreSQL credentials |
+| `REDIS_PASSWORD` | Redis auth password |
+| `PGADMIN_EMAIL` / `PGADMIN_PASSWORD` | pgAdmin UI login (`.env.infra` only) |
+| `JPA_DDL_AUTO` | Set to `create` on first run, then `none` |
+| `SECKILL_WARMUP_MINUTES_BEFORE` | Minutes before seckill to warm cache (default: `60`, use `1` for local testing) |
+
+### IntelliJ setup for local development
+
+1. Install the **EnvFile** plugin.
+2. In the app's Run Configuration, enable EnvFile and point it at `.env.local` — not `.env.infra` or `.env.container`.
+3. `.env.local` must use `localhost` hostnames (`DB_HOST`, `REDIS_HOST`, `KAFKA_BOOTSTRAP_SERVERS=localhost:9094`), since the app runs as a local JVM process outside the Docker network, not as a container on `app-network`.
 
 ---
 
 ## Running the Project
 
-The compose setup is split into two files:
-- `docker-compose.yml` — infrastructure only (PostgreSQL, Redis, Kafka, Kafka-UI, pgAdmin)
-- `docker-compose.app.yml` — Spring Boot app only (joins the infra network as external)
+`docker-compose.app.yml` was merged into `docker-compose.yml`: the `app` service is tagged `profiles: ["app"]`, so infra-only commands omit it by default, and `depends_on`/healthcheck ordering applies across infra and app in one file. A `Makefile` wraps the common commands so the correct `--env-file` flag is always applied — prefer `make` targets over raw `docker compose` invocations.
 
 ### Full stack (infra + app)
 
 ```bash
-docker compose up -d && docker compose -f docker-compose.app.yml up --build
+make app-up
 ```
 
 App is available at `http://localhost:8080`.
 
-### Infra only + local Spring Boot (recommended for development)
+### Infra only + local Spring Boot via IntelliJ (recommended for development)
 
 ```bash
-# Start infrastructure
-docker compose up -d
+make infra-up
+```
 
-# Run the app locally (local profile enables dev/diagnostic endpoints)
+Then run the app via IntelliJ with the Run Configuration's EnvFile plugin pointed at `.env.local` (see IntelliJ setup above), or:
+```bash
 ./gradlew bootRun
 ```
+(`./gradlew bootRun` requires `.env.local` variables to be exported into the shell environment first, since Gradle does not read `.env.local` itself.)
 
-### App container only (infra already running)
+### Other Makefile targets
 
-```bash
-docker compose -f docker-compose.app.yml up --build
-```
-
-> `docker-compose.app.yml` expects the network `redis-cache-demo_app-network` to exist,
-> which is created automatically when `docker compose up` starts the infra stack.
+| Command | Effect |
+|---|---|
+| `make infra-up` | Start infra only (postgres / redis / kafka / pgadmin / kafka-ui) |
+| `make infra-down` | Stop infra only |
+| `make app-up` | Start app (and infra, if not already running) |
+| `make app-down` | Stop the app container only, leave infra running |
+| `make down-all` | Stop everything (infra + app) |
+| `make restart-app` | Rebuild and restart the app only, after code changes |
+| `make logs` | Tail app logs |
+| `make logs-infra s=postgres` | Tail logs for a specific infra service |
+| `make ps` | Show status of all containers |
+| `make clean` | Stop everything and remove volumes (wipes DB data) |
 
 ---
 
@@ -300,9 +322,9 @@ When a seckill activity is created, a `SeckillActivityCreatedEvent` fires after 
 
 ```bash
 # 1. Start infrastructure
-docker compose up postgres redis kafka -d
+make infra-up
 
-# 2. Run app (local profile)
+# 2. Run app (local profile, via IntelliJ EnvFile -> .env.local, or:)
 ./gradlew bootRun
 
 # 3. Seed products

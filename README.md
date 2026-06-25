@@ -16,6 +16,7 @@ To solve these, the system combines **atomic Redis Lua scripts** for stock deduc
 
 ### Prerequisites
 - Docker & Docker Compose
+- `make`
 
 ### Steps
 
@@ -26,22 +27,51 @@ cd high-concurrency-seckill-system
 ```
 
 **2. Configure environment variables**
+
+Env config is split into three files based on which process reads them:
+
+| File | Read by | Purpose |
+|---|---|---|
+| `.env.infra` | `docker compose` (via `make`) | Credentials for postgres / redis / pgadmin |
+| `.env.container` | the `app` service in `docker-compose.yml` | App config when running inside Docker (container hostnames: `postgres`, `redis`, `kafka`) |
+| `.env.local` | IntelliJ EnvFile plugin | App config when running the app as a local JVM process (`localhost` hostnames) |
+
+Copy the example templates and fill in your credentials:
 ```bash
-cp .env.example .env
+cp .env.infra.example .env.infra
+cp .env.container.example .env.container
+cp .env.local.example .env.local
 ```
-Edit `.env` and fill in your credentials (PostgreSQL, Redis, pgAdmin passwords).
 
 **3. Start all services**
 ```bash
-docker compose up -d
-docker compose -f docker-compose.app.yml up --build -d
+make app-up
 ```
 
-PostgreSQL, Redis, Kafka, and the Spring Boot application will all start. Database tables are created automatically on first startup. Wait until all services are healthy:
+This starts PostgreSQL, Redis, Kafka, and the Spring Boot application — the app service joins the infra stack via the `app` Compose profile, with `depends_on`/healthcheck ordering ensuring infra is healthy first. Database tables are created automatically on first startup. Check status with:
 ```bash
-docker compose ps
-docker compose -f docker-compose.app.yml ps
+make ps
 ```
+
+Other common commands:
+
+| Command | Effect |
+|---|---|
+| `make infra-up` | Start infra only (postgres / redis / kafka / pgadmin / kafka-ui) |
+| `make app-up` | Start app (and infra, if not already running) |
+| `make app-down` | Stop the app container only, leave infra running |
+| `make down-all` | Stop everything (infra + app) |
+| `make restart-app` | Rebuild and restart the app only, after code changes |
+| `make logs` | Tail app logs |
+| `make logs-infra s=postgres` | Tail logs for a specific infra service |
+| `make clean` | Stop everything and remove volumes (wipes DB data) |
+
+#### Running the app locally in IntelliJ instead of Docker
+
+1. Start infra only: `make infra-up`
+2. Install the **EnvFile** plugin in IntelliJ
+3. Edit the app's Run Configuration → **EnvFile** tab → enable it and add `.env.local` (not `.env` or `.env.infra`)
+4. Run the app — since it runs as a local JVM process rather than inside the Docker network, `.env.local` must use `localhost` hostnames (`DB_HOST`, `REDIS_HOST`, `KAFKA_BOOTSTRAP_SERVERS`) instead of the container hostnames (`postgres`, `redis`, `kafka`) used by `.env.container`
 
 **4. Import the Postman collection**
 
