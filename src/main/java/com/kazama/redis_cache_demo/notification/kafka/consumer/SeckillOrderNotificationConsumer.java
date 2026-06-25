@@ -8,6 +8,7 @@ import com.kazama.redis_cache_demo.seckill.kafka.config.KafkaTopicConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -23,21 +24,29 @@ public class SeckillOrderNotificationConsumer {
             topics = KafkaTopicConfig.ORDER_NOTIFICATION_TOPIC_NAME,
             groupId = "order-notification",
             containerFactory = "stringKafkaListenerContainerFactory"
-    )    public void sendMockEmail(String payload) {
+    )    public void sendMockEmail(String payload, Acknowledgment acknowledgment) {
         SeckillOrderEvent orderEvent;
         try {
             orderEvent = objectMapper.readValue(payload, SeckillOrderEvent.class);
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize notification payload, skip. payload: {}", payload, e);
+            acknowledgment.acknowledge();
             return;
         }
 
-        if (!idempotencyService.tryMarkProcessed(orderEvent.id())) {
+        if (idempotencyService.isAlreadyProcessed(orderEvent.id())) {
             log.info("Duplicate notification for orderId: {}, skip", orderEvent.id());
+            acknowledgment.acknowledge();
             return;
         }
 
         String email = orderEvent.userId() + "@gmail.com";
         log.info("Sending notification to: {}, orderId: {}, activityId: {}", email, orderEvent.id(), orderEvent.seckillActivityId());
+        // if a real send call above throws, this method propagates the exception so the
+        // container's error handler retries/dead-letters it instead of acknowledging or
+        // marking a notification that was never actually sent
+
+        idempotencyService.markProcessed(orderEvent.id());
+        acknowledgment.acknowledge();
     }
 }
