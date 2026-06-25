@@ -17,13 +17,15 @@ public class NotificationIdempotencyService {
     private static final String PROCESSED_KEY_PREFIX = "seckill:notification:processed:";
     private static final Duration PROCESSED_TTL = Duration.ofHours(24);
 
+    public boolean isAlreadyProcessed(Long orderId) {
+        return Boolean.TRUE.equals(redisTemplate.hasKey(PROCESSED_KEY_PREFIX + orderId));
+    }
+
     /**
-     * Atomically claims processing rights for an order's notification.
-     * @return true if this call won the claim (not yet processed), false if it was already processed.
+     * Records a notification as processed. Call only after the send has actually succeeded —
+     * marking it before sending would block a legitimate retry on redelivery.
      */
-    public boolean tryMarkProcessed(Long orderId) {
-        String key = PROCESSED_KEY_PREFIX + orderId;
-        Boolean claimed = redisTemplate.opsForValue().setIfAbsent(key, "1", PROCESSED_TTL);
-        return Boolean.TRUE.equals(claimed);
+    public void markProcessed(Long orderId) {
+        redisTemplate.opsForValue().set(PROCESSED_KEY_PREFIX + orderId, "1", PROCESSED_TTL);
     }
 }
