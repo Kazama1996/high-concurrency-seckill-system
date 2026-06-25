@@ -7,3 +7,5 @@ CREATE TABLE IF NOT EXISTS order_created_outbox(
                        created_at          TIMESTAMPTZ     NOT NULL,
                        updated_at          TIMESTAMPTZ     NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS idx_order_created_outbox_status ON order_created_outbox (status);
