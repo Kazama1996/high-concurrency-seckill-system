@@ -30,7 +30,7 @@ public class OutboxPollingJob implements Job {
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
 
-        List<OrderCreatedOutbox> pendingOutbox = orderCreatedOutboxRepository.findByStatusIn(RETRYABLE_STATUSES);
+        List<OrderCreatedOutbox> pendingOutbox = orderCreatedOutboxRepository.findTop500ByStatusInOrderByCreatedAtAsc(RETRYABLE_STATUSES);
 
         if(pendingOutbox.isEmpty()) return;
 
