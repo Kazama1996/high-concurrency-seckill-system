@@ -11,8 +11,6 @@ import java.util.List;
 @Repository
 public interface OrderCreatedOutboxRepository extends JpaRepository<OrderCreatedOutbox , Long> {
 
-    List<OrderCreatedOutbox> findByStatus(OutboxStatus status);
-
-    List<OrderCreatedOutbox> findByStatusIn(List<OutboxStatus> statuses);
+    List<OrderCreatedOutbox> findTop500ByStatusInOrderByCreatedAtAsc(List<OutboxStatus> statuses);
 
 }
