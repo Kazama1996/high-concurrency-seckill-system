@@ -40,6 +40,7 @@ public class OrderService {
         }
         OrderCreatedOutbox outbox = OrderCreatedOutbox
                 .builder()
+                .orderId(entity.getId())
                 .payload(payload)
                 .status(OutboxStatus.PENDING)
                 .topicName(KafkaTopicConfig.ORDER_NOTIFICATION_TOPIC_NAME)
