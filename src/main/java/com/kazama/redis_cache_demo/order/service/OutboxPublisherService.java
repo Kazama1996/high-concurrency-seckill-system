@@ -20,6 +20,7 @@ public class OutboxPublisherService {
     private final KafkaTemplate<String, String> kafkaTemplate;
 
     private static final long SEND_TIMEOUT_SECONDS = 5;
+    private static final int MAX_RETRY_ATTEMPTS = 5;
 
     @Transactional
     public void publish(OrderCreatedOutbox outbox) {
@@ -28,8 +29,14 @@ public class OutboxPublisherService {
                     .get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             outbox.setStatus(OutboxStatus.SENT);
         } catch (Exception e) {
-            log.error("Failed to send outbox message, id: {}", outbox.getId(), e);
-            outbox.setStatus(OutboxStatus.FAILED);
+            outbox.setRetryCount(outbox.getRetryCount() + 1);
+            if (outbox.getRetryCount() >= MAX_RETRY_ATTEMPTS) {
+                log.error("Outbox message exceeded max retry attempts, moving to dead letter, id: {}", outbox.getId(), e);
+                outbox.setStatus(OutboxStatus.DEAD_LETTER);
+            } else {
+                log.error("Failed to send outbox message, id: {}, attempt: {}", outbox.getId(), outbox.getRetryCount(), e);
+                outbox.setStatus(OutboxStatus.FAILED);
+            }
         }
         orderCreatedOutboxRepository.save(outbox);
     }
