@@ -1,43 +1,33 @@
 package com.kazama.redis_cache_demo.order.service;
 
-import com.kazama.redis_cache_demo.infra.outbox.enums.OutboxStatus;
 import com.kazama.redis_cache_demo.order.entity.OrderCreatedOutbox;
-import com.kazama.redis_cache_demo.order.repository.OrderCreatedOutboxRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class OutboxPublisherService {
 
-    private final OrderCreatedOutboxRepository orderCreatedOutboxRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
+    private final OutboxStatusUpdateService statusUpdateService;
 
-    private static final long SEND_TIMEOUT_SECONDS = 5;
-    private static final int MAX_RETRY_ATTEMPTS = 5;
 
-    @Transactional
     public void publish(OrderCreatedOutbox outbox) {
-        try {
-            kafkaTemplate.send(outbox.getTopicName(), outbox.getPayload())
-                    .get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            outbox.setStatus(OutboxStatus.SENT);
-        } catch (Exception e) {
-            outbox.setRetryCount(outbox.getRetryCount() + 1);
-            if (outbox.getRetryCount() >= MAX_RETRY_ATTEMPTS) {
-                log.error("Outbox message exceeded max retry attempts, moving to dead letter, id: {}", outbox.getId(), e);
-                outbox.setStatus(OutboxStatus.DEAD_LETTER);
-            } else {
-                log.error("Failed to send outbox message, id: {}, attempt: {}", outbox.getId(), outbox.getRetryCount(), e);
-                outbox.setStatus(OutboxStatus.FAILED);
-            }
-        }
-        orderCreatedOutboxRepository.save(outbox);
+        kafkaTemplate.send(outbox.getTopicName(), outbox.getPayload())
+                .whenComplete((result, ex) -> {
+                    try {
+                        if (ex == null) {
+                            statusUpdateService.markSent(outbox.getId());
+                        } else {
+                            log.error("Failed to send outbox message, id: {}", outbox.getId(), ex);
+                            statusUpdateService.markFailed(outbox.getId(), OutboxStatusUpdateService.MAX_RETRY_ATTEMPTS);
+                        }
+                    } catch (Exception dbEx) {
+                        log.error("Failed to update outbox status, id: {}", outbox.getId(), dbEx);
+                    }
+                });
     }
 }
