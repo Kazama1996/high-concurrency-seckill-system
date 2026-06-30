@@ -5,6 +5,7 @@ import com.kazama.redis_cache_demo.infra.outbox.enums.OutboxStatus;
 import com.kazama.redis_cache_demo.order.entity.OrderCreatedOutbox;
 import com.kazama.redis_cache_demo.order.repository.OrderCreatedOutboxRepository;
 import com.kazama.redis_cache_demo.order.service.OutboxPublisherService;
+import com.kazama.redis_cache_demo.order.service.OutboxStatusUpdateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.quartz.DisallowConcurrentExecution;
@@ -12,6 +13,9 @@ import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -24,19 +28,37 @@ public class OutboxPollingJob implements Job {
 
     private final OutboxPublisherService outboxPublisherService;
 
+    private final OutboxStatusUpdateService statusUpdateService;
+
     private static final List<OutboxStatus> RETRYABLE_STATUSES = List.of(OutboxStatus.PENDING, OutboxStatus.FAILED);
+    private static final Duration SENDING_TIMEOUT = Duration.ofMinutes(5);
+
 
 
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
 
-        List<OrderCreatedOutbox> pendingOutbox = orderCreatedOutboxRepository.findTop500ByStatusInOrderByCreatedAtAsc(RETRYABLE_STATUSES);
+        List<OrderCreatedOutbox> targets = new ArrayList<>(orderCreatedOutboxRepository.findTop500ByStatusInOrderByCreatedAtAsc(RETRYABLE_STATUSES));
 
-        if(pendingOutbox.isEmpty()) return;
+        List<OrderCreatedOutbox> stuckSending = orderCreatedOutboxRepository
+                .findByStatusAndUpdatedAtBefore(OutboxStatus.SENDING, Instant.now().minus(SENDING_TIMEOUT));
 
-        pendingOutbox.forEach(outboxPublisherService::publish);
+        if (!stuckSending.isEmpty()) {
+            log.warn("Found {} outbox records stuck in SENDING, retrying", stuckSending.size());
+            List<Long> stuckIds = stuckSending.stream().map(OrderCreatedOutbox::getId).toList();
+            statusUpdateService.markFailedBatch(stuckIds, OutboxStatusUpdateService.MAX_RETRY_ATTEMPTS);
 
-        log.info("OrderCreatedOutbox polling triggered, found {} pending/failed records", pendingOutbox.size());
+        }
+
+        if (targets.isEmpty()) return;
+
+        List<Long> ids = targets.stream().map(OrderCreatedOutbox::getId).toList();
+        statusUpdateService.markAsSending(ids);
+
+        targets.forEach(outboxPublisherService::publish);
+
+        log.info("OrderCreatedOutbox polling triggered, dispatched {} records", targets.size());
+
 
     }
 }
