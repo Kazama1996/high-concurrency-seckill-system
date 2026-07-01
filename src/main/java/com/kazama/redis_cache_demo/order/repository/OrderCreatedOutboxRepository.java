@@ -1,6 +1,5 @@
 package com.kazama.redis_cache_demo.order.repository;
 
-import com.kazama.redis_cache_demo.infra.outbox.entity.Outbox;
 import com.kazama.redis_cache_demo.infra.outbox.enums.OutboxStatus;
 import com.kazama.redis_cache_demo.order.entity.OrderCreatedOutbox;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -20,12 +19,12 @@ public interface OrderCreatedOutboxRepository extends JpaRepository<OrderCreated
     List<OrderCreatedOutbox> findByStatusAndUpdatedAtBefore(OutboxStatus status , Instant threshold);
 
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE OrderCreatedOutbox o SET o.status = :status WHERE o.id IN :ids")
     void bulkUpdateStatus(@Param("ids") List<Long> ids, @Param("status") OutboxStatus status);
 
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query(value = """
     UPDATE order_created_outbox
         SET retry_count = retry_count+1,

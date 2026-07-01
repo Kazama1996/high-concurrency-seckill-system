@@ -11,7 +11,7 @@ public class OutboxQuartzConfig {
 
 
     @Bean
-    public JobDetail outboxPoolingJobDetail(){
+    public JobDetail outboxPollingJobDetail(){
         return JobBuilder
                 .newJob(OutboxPollingJob.class)
                 .withIdentity("outboxPollingJob" , "outbox")
@@ -21,9 +21,9 @@ public class OutboxQuartzConfig {
     }
 
     @Bean
-    public Trigger outboxPollingTrigger(JobDetail outboxPoolingJobDetail){
+    public Trigger outboxPollingTrigger(JobDetail outboxPollingJobDetail){
         return TriggerBuilder.newTrigger()
-                .forJob(outboxPoolingJobDetail)
+                .forJob(outboxPollingJobDetail)
                 .withIdentity("outboxPollingTrigger","outbox")
                 .withSchedule(SimpleScheduleBuilder.repeatSecondlyForever(5))
                 .build();
