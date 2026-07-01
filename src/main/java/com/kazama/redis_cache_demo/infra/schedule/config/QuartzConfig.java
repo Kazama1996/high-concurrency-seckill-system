@@ -1,6 +1,5 @@
 package com.kazama.redis_cache_demo.infra.schedule.config;
 
-import com.kazama.redis_cache_demo.infra.schedule.job.OutboxPollingJob;
 import org.quartz.*;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;

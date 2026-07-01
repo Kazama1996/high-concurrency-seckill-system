@@ -13,6 +13,6 @@ public class KafkaTopicConfig {
 
     @Bean
     public NewTopic orderNotification(){
-        return new NewTopic(ORDER_NOTIFICATION_TOPIC_NAME , 3 , (short) 1);
+        return new NewTopic(ORDER_NOTIFICATION_TOPIC_NAME , 3 , (short) 3);
     }
 }

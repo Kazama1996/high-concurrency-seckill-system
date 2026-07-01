@@ -16,7 +16,7 @@ public class OutboxPublisherService {
 
 
     public void publish(OrderCreatedOutbox outbox) {
-        kafkaTemplate.send(outbox.getTopicName(), outbox.getPayload())
+        kafkaTemplate.send(outbox.getTopicName(), String.valueOf(outbox.getOrderId()), outbox.getPayload())
                 .whenComplete((result, ex) -> {
                     try {
                         if (ex == null) {
