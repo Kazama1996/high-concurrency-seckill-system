@@ -10,4 +10,4 @@ CREATE TABLE IF NOT EXISTS order_created_outbox(
                        CONSTRAINT uq_order_created_outbox_order_id UNIQUE (order_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_order_created_outbox_status ON order_created_outbox (status);
+CREATE INDEX IF NOT EXISTS idx_order_created_outbox_status_created_at ON order_created_outbox (status, created_at);
