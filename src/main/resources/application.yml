@@ -7,7 +7,6 @@ spring:
         - classpath:db/create_orders.sql
         - classpath:db/create_order_created_outbox.sql
         - classpath:db/create_seckill_activities.sql
-        - classpath:db/create_outbox.sql
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
   application:
