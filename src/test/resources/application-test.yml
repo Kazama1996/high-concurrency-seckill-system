@@ -1,0 +1,3 @@
+spring:
+  quartz:
+    auto-startup: false
