@@ -53,8 +53,8 @@ out/
 !.env.container.example
 
 ### OS files ###
-.DS_Store       # ← Mac 的隱藏檔
-Thumbs.db       # ← Windows 的縮圖快取
+.DS_Store
+Thumbs.db
 
 
 ### Jmeter related
