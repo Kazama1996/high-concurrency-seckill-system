@@ -88,6 +88,7 @@ resilience4j:
         recordExceptions:
           - org.redisson.client.RedisException
           - java.util.concurrent.TimeoutException
+          - org.springframework.dao.DataAccessException
       seckillActivityDB:
         slidingWindowType: COUNT_BASED
         slidingWindowSize: 10
