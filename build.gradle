@@ -51,5 +51,14 @@ dependencies {
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
+	useJUnitPlatform {
+		String includeTagsProp = System.getProperty('includeTags')
+		if (includeTagsProp) {
+			includeTags(includeTagsProp.split(','))
+		}
+		String excludeTagsProp = System.getProperty('excludeTags')
+		if (excludeTagsProp) {
+			excludeTags(excludeTagsProp.split(','))
+		}
+	}
 }
