@@ -1,5 +1,6 @@
 package com.kazama.redis_cache_demo;
 
+import org.junit.jupiter.api.Tag;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -14,6 +15,7 @@ import org.testcontainers.utility.DockerImageName;
 @SpringBootTest
 @Testcontainers
 @ActiveProfiles("test")
+@Tag("integration")
 public abstract class AbstractIntegrationTest {
 
     @Container

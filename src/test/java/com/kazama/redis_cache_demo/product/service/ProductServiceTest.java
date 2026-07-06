@@ -10,6 +10,7 @@ import com.kazama.redis_cache_demo.product.dto.ProductDTO;
 import com.kazama.redis_cache_demo.product.enums.ProductCategory;
 import com.kazama.redis_cache_demo.product.repository.ProductRepository;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -29,6 +30,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@Tag("unit")
 class ProductServiceTest {
 
     @Mock private ProductRepository productRepository;
