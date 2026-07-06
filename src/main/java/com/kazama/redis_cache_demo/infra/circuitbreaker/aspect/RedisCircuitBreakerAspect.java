@@ -12,6 +12,7 @@ import org.aspectj.lang.annotation.Aspect;
 import org.redisson.client.RedisException;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.annotation.Order;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.TimeUnit;
@@ -49,7 +50,7 @@ public class RedisCircuitBreakerAspect {
             return result;
         }catch(Exception e){
 
-            if (e instanceof RedisException || e instanceof TimeoutException) {
+            if (e instanceof RedisException || e instanceof TimeoutException || e instanceof DataAccessException) {
                 long duration = System.currentTimeMillis() - start;
                 redisCircuitBreaker.onError(duration, TimeUnit.MILLISECONDS, e);
             }
