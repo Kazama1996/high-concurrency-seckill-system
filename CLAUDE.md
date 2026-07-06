@@ -359,6 +359,24 @@ Set `JPA_DDL_AUTO=create` on first run, then switch to `none`.
 
 ## Git Workflow
 
+### Claude Code Execution Boundaries (MUST follow — takes precedence over the workflow below)
+
+**Standard workflow:**
+1. Make the code changes
+2. **Stop here** — do not auto-commit. List which files were changed and what was changed, then wait for explicit user confirmation (e.g. the user says "OK", "looks good", "go ahead and commit")
+3. Only after receiving explicit confirmation, write the commit message per the convention below and run `git commit`
+4. After committing, **stop again** — report the commit message content, and do not take any further action
+
+**Strictly forbidden** (even mid-workflow, even if the user gives a vague instruction like "handle it", "finish this up", "continue" — unless the user explicitly names the action):
+- `git push` (no branch is exempt, including feature branches)
+- `gh pr create` or creating a PR/MR in any form
+- Running `git commit` without explicit user confirmation
+
+**Exception:** Only run `git push` or open a PR when the user explicitly says so (e.g. "push it" / "open a PR for me"). If it's unclear whether consent was explicit enough, ask first — never assume.
+
+> Steps 4 and 5 in the Flow section below (push, open PR, merge) are always performed **manually by the user**. Claude Code does not perform them proactively, and only helps assemble the relevant commands when explicitly asked.
+
+
 ### Branch naming
 
 | Prefix | Use for |
