@@ -7,7 +7,12 @@ import com.kazama.redis_cache_demo.infra.lock.DistributeLockService;
 import com.kazama.redis_cache_demo.infra.util.RandomGenerator;
 import com.kazama.redis_cache_demo.infra.util.Sleeper;
 import com.kazama.redis_cache_demo.product.dto.ProductDTO;
+import com.kazama.redis_cache_demo.product.dto.UpdateProductRequest;
+import com.kazama.redis_cache_demo.product.entity.Product;
 import com.kazama.redis_cache_demo.product.enums.ProductCategory;
+import com.kazama.redis_cache_demo.product.events.ProductDeleteEvent;
+import com.kazama.redis_cache_demo.product.events.ProductUpdateEvent;
+import com.kazama.redis_cache_demo.product.exception.ProductNotFoundException;
 import com.kazama.redis_cache_demo.product.repository.ProductRepository;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import org.junit.jupiter.api.Tag;
@@ -218,5 +223,239 @@ class ProductServiceTest {
         List<Long> capturedDelays = delayCaptor.getAllValues();
         assertEquals(List.of(150L, 300L, 600L, 1200L, 2000L), capturedDelays);
 
+    }
+
+    // ------------------------------------------------------------------ updateProduct
+
+    private Product sampleProductEntity() {
+        Product product = new Product();
+        product.setId(PRODUCT_ID);
+        product.setName("Test Phone");
+        product.setDescription("A smartphone");
+        product.setCategory(ProductCategory.ELECTRONICS);
+        product.setPrice(BigDecimal.valueOf(999));
+        product.setStock(100);
+        product.setImageUrl("http://img.example.com/phone.jpg");
+        product.setIsSeckill(false);
+        return product;
+    }
+
+    @Test
+    void updateProduct_bloomFilterRejects_throwsRuntimeException() {
+        when(productBloomFilterService.mightContain(PRODUCT_ID)).thenReturn(false);
+
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> productService.updateProduct(
+                PRODUCT_ID, new UpdateProductRequest(null, null, null, null, null)));
+
+        assertEquals("Product not found: " + PRODUCT_ID, ex.getMessage());
+        verifyNoInteractions(productRepository, eventPublisher);
+    }
+
+    @Test
+    void updateProduct_notFoundInRepository_throwsRuntimeException() {
+        when(productBloomFilterService.mightContain(PRODUCT_ID)).thenReturn(true);
+        when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.empty());
+
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> productService.updateProduct(
+                PRODUCT_ID, new UpdateProductRequest(null, null, null, null, null)));
+
+        assertEquals("Product not found: " + PRODUCT_ID, ex.getMessage());
+        verify(productRepository, never()).save(any());
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void updateProduct_onlyNameSet_updatesOnlyName() {
+        Product product = sampleProductEntity();
+        when(productBloomFilterService.mightContain(PRODUCT_ID)).thenReturn(true);
+        when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(product));
+        when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ProductDTO result = productService.updateProduct(PRODUCT_ID,
+                new UpdateProductRequest("New Name", null, null, null, null));
+
+        assertEquals("New Name", result.name());
+        assertEquals("A smartphone", result.description());
+        assertEquals(BigDecimal.valueOf(999), result.price());
+        assertEquals("http://img.example.com/phone.jpg", result.imageUrl());
+        assertEquals(100, result.stock());
+        verify(productRepository).save(product);
+        verify(eventPublisher).publishEvent(new ProductUpdateEvent(PRODUCT_ID));
+    }
+
+    @Test
+    void updateProduct_onlyDescriptionSet_updatesOnlyDescription() {
+        Product product = sampleProductEntity();
+        when(productBloomFilterService.mightContain(PRODUCT_ID)).thenReturn(true);
+        when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(product));
+        when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ProductDTO result = productService.updateProduct(PRODUCT_ID,
+                new UpdateProductRequest(null, "New description", null, null, null));
+
+        assertEquals("Test Phone", result.name());
+        assertEquals("New description", result.description());
+        assertEquals(BigDecimal.valueOf(999), result.price());
+        assertEquals("http://img.example.com/phone.jpg", result.imageUrl());
+        assertEquals(100, result.stock());
+    }
+
+    @Test
+    void updateProduct_onlyPriceSet_updatesOnlyPrice() {
+        Product product = sampleProductEntity();
+        when(productBloomFilterService.mightContain(PRODUCT_ID)).thenReturn(true);
+        when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(product));
+        when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ProductDTO result = productService.updateProduct(PRODUCT_ID,
+                new UpdateProductRequest(null, null, BigDecimal.valueOf(1299), null, null));
+
+        assertEquals("Test Phone", result.name());
+        assertEquals(BigDecimal.valueOf(1299), result.price());
+        assertEquals("http://img.example.com/phone.jpg", result.imageUrl());
+        assertEquals(100, result.stock());
+    }
+
+    @Test
+    void updateProduct_onlyImageUrlSet_updatesOnlyImageUrl() {
+        Product product = sampleProductEntity();
+        when(productBloomFilterService.mightContain(PRODUCT_ID)).thenReturn(true);
+        when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(product));
+        when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ProductDTO result = productService.updateProduct(PRODUCT_ID,
+                new UpdateProductRequest(null, null, null, null, "http://img.example.com/new.jpg"));
+
+        assertEquals("http://img.example.com/new.jpg", result.imageUrl());
+        assertEquals(100, result.stock());
+        assertEquals("Test Phone", result.name());
+    }
+
+    @Test
+    void updateProduct_onlyStockSet_updatesOnlyStock() {
+        Product product = sampleProductEntity();
+        when(productBloomFilterService.mightContain(PRODUCT_ID)).thenReturn(true);
+        when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(product));
+        when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ProductDTO result = productService.updateProduct(PRODUCT_ID,
+                new UpdateProductRequest(null, null, null, 50, null));
+
+        assertEquals(50, result.stock());
+        assertEquals("Test Phone", result.name());
+        assertEquals("http://img.example.com/phone.jpg", result.imageUrl());
+    }
+
+    @Test
+    void updateProduct_allFieldsSet_updatesEverythingAndPublishesOneEvent() {
+        Product product = sampleProductEntity();
+        when(productBloomFilterService.mightContain(PRODUCT_ID)).thenReturn(true);
+        when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(product));
+        when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ProductDTO result = productService.updateProduct(PRODUCT_ID, new UpdateProductRequest(
+                "New Name", "New description", BigDecimal.valueOf(1299), 50, "http://img.example.com/new.jpg"));
+
+        assertEquals("New Name", result.name());
+        assertEquals("New description", result.description());
+        assertEquals(BigDecimal.valueOf(1299), result.price());
+        assertEquals(50, result.stock());
+        assertEquals("http://img.example.com/new.jpg", result.imageUrl());
+        verify(productRepository, times(1)).save(any());
+        verify(eventPublisher, times(1)).publishEvent(any(ProductUpdateEvent.class));
+    }
+
+    @Test
+    void updateProduct_allFieldsNull_stillSavesUnchangedProductAndPublishesEvent() {
+        Product product = sampleProductEntity();
+        when(productBloomFilterService.mightContain(PRODUCT_ID)).thenReturn(true);
+        when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(product));
+        when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ProductDTO result = productService.updateProduct(PRODUCT_ID,
+                new UpdateProductRequest(null, null, null, null, null));
+
+        assertEquals("Test Phone", result.name());
+        verify(productRepository).save(product);
+        verify(eventPublisher).publishEvent(new ProductUpdateEvent(PRODUCT_ID));
+    }
+
+    @Test
+    void updateProduct_publishesEventWithOriginalIdParameter() {
+        Product product = sampleProductEntity();
+        when(productBloomFilterService.mightContain(PRODUCT_ID)).thenReturn(true);
+        when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(product));
+        when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        productService.updateProduct(PRODUCT_ID, new UpdateProductRequest(null, null, null, null, null));
+
+        ArgumentCaptor<ProductUpdateEvent> eventCaptor = ArgumentCaptor.forClass(ProductUpdateEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertEquals(PRODUCT_ID, eventCaptor.getValue().productId());
+    }
+
+    // ------------------------------------------------------------------ deleteProductById
+
+    @Test
+    void deleteProductById_bloomFilterRejects_throwsProductNotFoundException() {
+        when(productBloomFilterService.mightContain(PRODUCT_ID)).thenReturn(false);
+
+        assertThrows(ProductNotFoundException.class, () -> productService.deleteProductById(PRODUCT_ID));
+
+        verifyNoInteractions(productRepository, eventPublisher);
+    }
+
+    @Test
+    void deleteProductById_notFoundInRepository_throwsProductNotFoundException() {
+        when(productBloomFilterService.mightContain(PRODUCT_ID)).thenReturn(true);
+        when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.empty());
+
+        assertThrows(ProductNotFoundException.class, () -> productService.deleteProductById(PRODUCT_ID));
+
+        verify(productRepository, never()).delete(any());
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void deleteProductById_found_deletesAndPublishesEvent() {
+        Product product = sampleProductEntity();
+        when(productBloomFilterService.mightContain(PRODUCT_ID)).thenReturn(true);
+        when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(product));
+
+        productService.deleteProductById(PRODUCT_ID);
+
+        verify(productRepository).delete(product);
+        verify(eventPublisher).publishEvent(new ProductDeleteEvent(PRODUCT_ID));
+    }
+
+    // ------------------------------------------------------------------ markAsSeckill
+
+    @Test
+    void markAsSeckill_singleId_updatesAndPublishesOneEvent() {
+        productService.markAsSeckill(List.of(PRODUCT_ID));
+
+        verify(productRepository).markAsSeckill(List.of(PRODUCT_ID));
+        verify(eventPublisher, times(1)).publishEvent(new ProductUpdateEvent(PRODUCT_ID));
+    }
+
+    @Test
+    void markAsSeckill_multipleIds_publishesOneEventPerId() {
+        List<Long> ids = List.of(1L, 2L, 3L);
+
+        productService.markAsSeckill(ids);
+
+        verify(productRepository).markAsSeckill(ids);
+        ArgumentCaptor<ProductUpdateEvent> eventCaptor = ArgumentCaptor.forClass(ProductUpdateEvent.class);
+        verify(eventPublisher, times(3)).publishEvent(eventCaptor.capture());
+        List<Long> publishedIds = eventCaptor.getAllValues().stream().map(ProductUpdateEvent::productId).toList();
+        assertEquals(ids, publishedIds);
+    }
+
+    @Test
+    void markAsSeckill_emptyList_stillCallsRepositoryButPublishesNoEvents() {
+        productService.markAsSeckill(List.of());
+
+        verify(productRepository).markAsSeckill(List.of());
+        verifyNoInteractions(eventPublisher);
     }
 }
