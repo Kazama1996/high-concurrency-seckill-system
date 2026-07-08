@@ -19,4 +19,12 @@ public abstract class AbstractRedisIntegrationTest {
     protected static String redisAddress() {
         return "redis://" + redis.getHost() + ":" + redis.getMappedPort(6379);
     }
+
+    protected static String redisHost() {
+        return redis.getHost();
+    }
+
+    protected static int redisPort() {
+        return redis.getMappedPort(6379);
+    }
 }
