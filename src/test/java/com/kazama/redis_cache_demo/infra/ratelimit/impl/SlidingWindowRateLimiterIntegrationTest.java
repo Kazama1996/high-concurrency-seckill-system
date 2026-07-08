@@ -42,30 +42,36 @@ class SlidingWindowRateLimiterIntegrationTest extends AbstractRedisIntegrationTe
         key = "ratelimit:test:" + KEY_SEQ.getAndIncrement();
     }
 
+    // A generously long window (well beyond any realistic time these few sequential Redis round
+    // trips could take, even under a slow/loaded CI runner) so these admission/boundary tests
+    // never flake due to the sliding window genuinely expiring an entry mid-test. Only
+    // windowExpiry_allowsRequestsAgainAfterWindowPasses below intentionally uses a short window.
+    private static final int NON_EXPIRING_WINDOW_SECONDS = 60;
+
     @Test
     void admitsRequestsUpToLimit() {
-        assertThat(rateLimiter.isAllowed(key, 3, 2)).isTrue();
-        assertThat(rateLimiter.isAllowed(key, 3, 2)).isTrue();
-        assertThat(rateLimiter.isAllowed(key, 3, 2)).isTrue();
+        assertThat(rateLimiter.isAllowed(key, 3, NON_EXPIRING_WINDOW_SECONDS)).isTrue();
+        assertThat(rateLimiter.isAllowed(key, 3, NON_EXPIRING_WINDOW_SECONDS)).isTrue();
+        assertThat(rateLimiter.isAllowed(key, 3, NON_EXPIRING_WINDOW_SECONDS)).isTrue();
     }
 
     @Test
     void rejectsRequestOverLimit() {
-        rateLimiter.isAllowed(key, 3, 2);
-        rateLimiter.isAllowed(key, 3, 2);
-        rateLimiter.isAllowed(key, 3, 2);
+        rateLimiter.isAllowed(key, 3, NON_EXPIRING_WINDOW_SECONDS);
+        rateLimiter.isAllowed(key, 3, NON_EXPIRING_WINDOW_SECONDS);
+        rateLimiter.isAllowed(key, 3, NON_EXPIRING_WINDOW_SECONDS);
 
-        boolean fourth = rateLimiter.isAllowed(key, 3, 2);
+        boolean fourth = rateLimiter.isAllowed(key, 3, NON_EXPIRING_WINDOW_SECONDS);
 
         assertThat(fourth).isFalse();
     }
 
     @Test
     void rejectedCall_isNotAddedToTheWindow() {
-        rateLimiter.isAllowed(key, 3, 2);
-        rateLimiter.isAllowed(key, 3, 2);
-        rateLimiter.isAllowed(key, 3, 2);
-        rateLimiter.isAllowed(key, 3, 2); // rejected, should not grow the sorted set
+        rateLimiter.isAllowed(key, 3, NON_EXPIRING_WINDOW_SECONDS);
+        rateLimiter.isAllowed(key, 3, NON_EXPIRING_WINDOW_SECONDS);
+        rateLimiter.isAllowed(key, 3, NON_EXPIRING_WINDOW_SECONDS);
+        rateLimiter.isAllowed(key, 3, NON_EXPIRING_WINDOW_SECONDS); // rejected, should not grow the sorted set
 
         Long count = redisTemplate.opsForZSet().size(key);
 
@@ -74,7 +80,7 @@ class SlidingWindowRateLimiterIntegrationTest extends AbstractRedisIntegrationTe
 
     @Test
     void allowedCall_setsExpiryOnKey() {
-        rateLimiter.isAllowed(key, 3, 2);
+        rateLimiter.isAllowed(key, 3, NON_EXPIRING_WINDOW_SECONDS);
 
         Long ttl = redisTemplate.getExpire(key, SECONDS);
 
@@ -102,7 +108,7 @@ class SlidingWindowRateLimiterIntegrationTest extends AbstractRedisIntegrationTe
         int limit = 5;
         int allowedCount = 0;
         for (int i = 0; i < 50; i++) {
-            if (rateLimiter.isAllowed(key, limit, 5)) {
+            if (rateLimiter.isAllowed(key, limit, NON_EXPIRING_WINDOW_SECONDS)) {
                 allowedCount++;
             }
         }
