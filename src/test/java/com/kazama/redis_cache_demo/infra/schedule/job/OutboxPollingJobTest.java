@@ -42,6 +42,19 @@ class OutboxPollingJobTest {
                 .build();
     }
 
+
+    @Test
+    void execute_allSourcesEmpty_doesNothing() throws JobExecutionException {
+        when(outboxRepository.findTop500ByStatusInOrderByCreatedAtAsc(RETRYABLE_STATUSES)).thenReturn(List.of());
+        when(outboxRepository.findByStatusAndUpdatedAtBefore(eq(OutboxStatus.SENDING),any(Instant.class))).thenReturn(List.of());
+
+        outboxPollingJob.execute(context);
+
+        verifyNoInteractions(statusUpdateService);
+        verifyNoInteractions(outboxPublisherService);
+
+    }
+
     @Test
     void execute_stuckSendingFound_marksFailedBatch() throws JobExecutionException {
         OrderCreatedOutbox stuck = outbox(1L);
@@ -52,29 +65,9 @@ class OutboxPollingJobTest {
         outboxPollingJob.execute(context);
 
         verify(statusUpdateService).markFailedBatch(List.of(1L), OutboxStatusUpdateService.MAX_RETRY_ATTEMPTS);
-    }
-
-    @Test
-    void execute_noStuckSending_neverMarksFailedBatch() throws JobExecutionException {
-        when(outboxRepository.findTop500ByStatusInOrderByCreatedAtAsc(RETRYABLE_STATUSES)).thenReturn(List.of());
-        when(outboxRepository.findByStatusAndUpdatedAtBefore(eq(OutboxStatus.SENDING), any(Instant.class)))
-                .thenReturn(List.of());
-
-        outboxPollingJob.execute(context);
-
-        verify(statusUpdateService, never()).markFailedBatch(any(), anyInt());
-    }
-
-    @Test
-    void execute_emptyTargets_earlyReturnsWithoutSendingOrPublishing() throws JobExecutionException {
-        when(outboxRepository.findTop500ByStatusInOrderByCreatedAtAsc(RETRYABLE_STATUSES)).thenReturn(List.of());
-        when(outboxRepository.findByStatusAndUpdatedAtBefore(eq(OutboxStatus.SENDING), any(Instant.class)))
-                .thenReturn(List.of());
-
-        outboxPollingJob.execute(context);
-
         verify(statusUpdateService, never()).markAsSending(any());
         verifyNoInteractions(outboxPublisherService);
+
     }
 
     @Test
