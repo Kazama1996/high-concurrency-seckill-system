@@ -97,12 +97,6 @@ class SlidingWindowRateLimiterIntegrationTest extends AbstractRedisIntegrationTe
                 assertThat(rateLimiter.isAllowed(key, 2, 1)).isTrue());
     }
 
-    // Best-effort, non-deterministic: two calls landing on the exact same millisecond would
-    // collide in the sorted set (member == score == now), since ZADD on an existing member just
-    // updates its score instead of adding a second entry. Forcing an exact same-millisecond
-    // collision isn't reliably reproducible in a JUnit test, so this only asserts the invariant
-    // that the limit is never exceeded across a rapid-fire burst -- it does not prove a collision
-    // actually occurred on any given run.
     @Test
     void rapidFireCalls_neverAdmitMoreThanLimit() {
         int limit = 5;
