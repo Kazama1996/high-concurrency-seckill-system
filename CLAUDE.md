@@ -106,12 +106,42 @@ Then run the app via IntelliJ with the Run Configuration's EnvFile plugin pointe
 # Run all tests
 ./gradlew test
 
+# Run only unit tests (fast, no containers)
+./gradlew test -DincludeTags=unit
+
+# Run only integration tests (Testcontainers: Postgres / Kafka / Redis)
+./gradlew test -DincludeTags=integration
+
 # Run a single test class
 ./gradlew test --tests "com.kazama.redis_cache_demo.RedisCacheDemoApplicationTests"
 
 # Clean build
 ./gradlew clean build
 ```
+
+Every test is tagged `@Tag("unit")` or `@Tag("integration")`. `build.gradle`'s `useJUnitPlatform` block reads the `-DincludeTags` / `-DexcludeTags` system properties (comma-separated) and filters on them — this is the mechanism CI uses to run unit and integration tests as separate jobs (see CI/CD below).
+
+Integration tests extend one of three Testcontainers-backed base classes, chosen by what infra the test actually needs rather than always paying for the full stack:
+
+| Base class | Containers | Use for |
+|---|---|---|
+| `AbstractIntegrationTest` | Postgres + Kafka + Redis, `@SpringBootTest` | End-to-end flows spanning multiple infra pieces |
+| `AbstractRedisIntegrationTest` | Redis only | Redis/Lua-only tests — independent of the other two, no Spring context |
+| `AbstractPostgresIntegrationTest` | Postgres only, `@DataJpaTest` | Repository/native-query tests; the Postgres container is a JVM-wide singleton started in a static block (not a JUnit `@Container`), since each subclass gets its own `@DataJpaTest` context and a `@Container`-managed instance would otherwise start a second Postgres per subclass |
+
+---
+
+## CI/CD
+
+`.github/workflows/ci.yml` runs on push and PR to `main`, with three jobs:
+
+| Job | Runs | `needs` |
+|---|---|---|
+| `unit-tests` | `./gradlew test -DincludeTags=unit` | — |
+| `integration-tests` | `./gradlew test -DincludeTags=integration` | — |
+| `build` | `./gradlew build -x test`, uploads the jar artifact | `unit-tests`, `integration-tests` |
+
+`unit-tests` and `integration-tests` run in parallel (no `needs:` between them — they use disjoint `-DincludeTags` filters and don't share fixtures); `build` waits on both. Use these exact job names when configuring required status checks for branch protection.
 
 ---
 
@@ -188,31 +218,31 @@ src/main/java/com/kazama/redis_cache_demo/
 │   ├── event/             # SeckillActivityEventListener (schedules cache warming after creation)
 │   └── repository/
 ├── order/
-│   ├── service/           # OrderService (@Transactional: save order + outbox record)
+│   ├── service/           # OrderService (@Transactional: save order + outbox record),
+│   │                      # OutboxStatusUpdateService (status transitions), OutboxPublisherService (Kafka send + status update)
 │   ├── entity/            # Orders, OrderCreatedOutbox
-│   └── repository/
+│   └── repository/        # OrderRepository, OrderCreatedOutboxRepository
 ├── product/
 │   ├── controller/        # ProductController
 │   ├── service/           # ProductService (lock-protected cache), ProductCacheService (Redis R/W)
 │   ├── entity/            # Product JPA entity
 │   └── repository/
 ├── notification/
-│   └── kafka/consumer/    # SeckillOrderNotificationConsumer (mock email log)
+│   └── kafka/consumer/    # SeckillOrderNotificationConsumer (manual-ack, idempotency-checked mock email log)
 └── infra/
     ├── bloomfilter/        # Redisson Bloom Filter (cache penetration guard)
     ├── cache/              # CacheResult<T> wrapper (HIT / MISS / NULL_HIT)
     ├── circuitbreaker/     # @ProductDBCircuitBreaker, @RedisCircuitBreaker, etc. (annotations)
+    ├── idempotency/        # NotificationIdempotencyService (Redis-backed dedup for the notification consumer)
     ├── lock/               # DistributedLockService (Redisson RLock with watchdog)
     ├── outbox/
     │   ├── config/         # OutboxQuartzConfig (JobDetail/Trigger for outbox polling)
-    │   ├── entity/         # Outbox
-    │   ├── enums/          # OutboxStatus
-    │   └── repository/     # OutboxRepository
+    │   └── enums/          # OutboxStatus (PENDING, SENDING, SENT, FAILED, DEAD_LETTER)
     ├── ratelimit/          # @RateLimit AOP + sliding window Lua script
     ├── schedule/
     │   ├── config/         # QuartzConfig (JobFactory/SchedulerFactoryBean/Scheduler — pure infra),
     │   │                   # AutowiringSpringBeanJobFactory
-    │   └── job/            # SeckillCacheWarmingJob (Quartz), OutboxPollingJob (Quartz, every 5s)
+    │   └── job/            # SeckillCacheWarmingJob (Quartz), OutboxPollingJob (Quartz, every 5s — dispatch + stuck-SENDING recovery)
     ├── diagnostic/         # DiagnosticController + DiagnosticService
     └── init/               # DataInitController + DataInitService (seed data)
 
@@ -261,13 +291,19 @@ POST /api/v1/seckill/deduct
           └─ INSERT order_created_outbox (status=PENDING)
 
   [Quartz OutboxPollingJob, every 5s]
-  └─ SELECT order_created_outbox WHERE status=PENDING
-      └─ KafkaTemplate.send(topic, payload)
-          ├─ success → status=SENT
-          └─ failure → status=FAILED (retried next cycle)
+  ├─ SELECT order_created_outbox WHERE status IN (PENDING, FAILED), top 500 by createdAt
+  ├─ bulk UPDATE status=SENDING for that batch (claims the rows before dispatch)
+  ├─ KafkaTemplate.send(topic, payload) per record
+  │   ├─ success → status=SENT
+  │   └─ failure → retry_count++; status=DEAD_LETTER if retry_count ≥ MAX_RETRY_ATTEMPTS(5), else status=FAILED (retried next cycle)
+  └─ separately: SELECT order_created_outbox WHERE status=SENDING AND updatedAt < now-5min
+      └─ found (e.g. app crashed mid-publish) → force straight to status=DEAD_LETTER
 
-  [Kafka Consumer: SeckillOrderNotificationConsumer]
-  └─ Log mock notification email
+  [Kafka Consumer: SeckillOrderNotificationConsumer, manual ack]
+  ├─ NotificationIdempotencyService.isAlreadyProcessed(orderId)?
+  │   └─ yes → ack + skip (duplicate delivery)
+  └─ no → log mock notification email → markProcessed(orderId) → ack
+      (unhandled exception → not acked → container's DefaultErrorHandler retries up to 4x, then routes to the topic's .DLT)
 ```
 
 ---
@@ -297,9 +333,16 @@ POST /api/v1/seckill/deduct
 - **Avalanche:** Product cache TTL = 3600s + random [0, 300)s jitter to stagger mass expiry.
 
 ### Outbox Pattern
-Order creation and outbox record insertion share a single `@Transactional` boundary in `OrderService`. Quartz polls every 5 seconds for `PENDING` records and publishes to Kafka — no dual-write risk.
+Order creation and outbox record insertion share a single `@Transactional` boundary in `OrderService`. Quartz polls every 5 seconds for `PENDING` and `FAILED` records and publishes to Kafka — no dual-write risk.
+
+`OutboxStatus` is a 5-state machine: `PENDING` → `SENDING` → `SENT`, or `SENDING` → `FAILED` (retryable) → ... → `DEAD_LETTER` (terminal, once `OutboxStatusUpdateService.MAX_RETRY_ATTEMPTS` = 5 attempts have failed). `OutboxPollingJob` claims a batch by bulk-updating the matched rows to `SENDING` *before* dispatch, so a later poll cycle can't re-claim and double-publish the same rows, then calls `OutboxPublisherService.publish` per record. On send failure, `OrderCreatedOutboxRepository.bulkMarkFailed` runs a native `UPDATE ... SET retry_count = retry_count+1, status = CASE WHEN retry_count+1 >= :maxRetry THEN 'DEAD_LETTER' ELSE 'FAILED' END` — the retry-count increment and the terminal-state boundary check happen atomically in one SQL statement.
+
+Each poll cycle also looks for records stuck in `SENDING` for longer than `OutboxPollingJob.SENDING_TIMEOUT` (5 minutes) — e.g. the app crashed after claiming a batch but before the Kafka send callback ran — and force-fails them straight to `DEAD_LETTER` via `markFailedBatch(ids, MAX_RETRY_ATTEMPTS)`, since a stuck record's actual delivery outcome is unknown and shouldn't be silently retried forever.
 
 Quartz infrastructure (`JobFactory`, `SchedulerFactoryBean`, `Scheduler`) lives in `infra/schedule/config/QuartzConfig`, kept free of any job-specific definitions. Each feature owns its own `JobDetail`/`Trigger` beans in its own `config` package (e.g. `infra/outbox/config/OutboxQuartzConfig`), following this repo's package-by-feature convention — mirrors how `order/config`, `product/config`, `seckill/config` each hold their own `CircuitBreakerConfig`. `schedulerFactoryBean` accepts `JobDetail[]`/`Trigger[]` so new jobs are auto-collected without modifying that bean method.
+
+### Consumer-Side Idempotency
+`SeckillOrderNotificationConsumer` uses manual acknowledgment (`ContainerProperties.AckMode.MANUAL_IMMEDIATE`, configured in `infra/config/KafkaConsumerConfig`) instead of auto-ack, so a record is only committed once it has actually been handled. Before processing, it checks `NotificationIdempotencyService.isAlreadyProcessed(orderId)` — a Redis key (`seckill:notification:processed:{orderId}`, 24h TTL) — to guard against redelivery, since Kafka's at-least-once semantics plus the container's own retry can otherwise redeliver the same record. On success it calls `markProcessed(orderId)` *after* the (mock) send, then acks; an unhandled exception during processing propagates instead of acking, so the container's `DefaultErrorHandler` retries (up to 4x with backoff) and then routes the record to its `.DLT` topic via `DeadLetterPublishingRecoverer` rather than dropping it silently.
 
 ### Circuit Breaker Topology (Resilience4j)
 Four independent circuit breakers, each with: sliding window size 10, failure threshold 50%, open-state wait 10s, 3 half-open probe calls.
