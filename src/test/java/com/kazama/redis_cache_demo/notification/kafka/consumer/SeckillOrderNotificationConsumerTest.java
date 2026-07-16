@@ -1,6 +1,7 @@
 package com.kazama.redis_cache_demo.notification.kafka.consumer;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kazama.redis_cache_demo.infra.idempotency.NotificationIdempotencyService;
 import com.kazama.redis_cache_demo.seckill.event.SeckillOrderEvent;
@@ -15,6 +16,7 @@ import org.springframework.kafka.support.Acknowledgment;
 
 import java.math.BigDecimal;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -37,12 +39,12 @@ class SeckillOrderNotificationConsumerTest {
     @Test
     void sendMockEmail_deserializeFails_acknowledgesAndSkipsIdempotencyCheck() throws JsonProcessingException {
         when(objectMapper.readValue(PAYLOAD, SeckillOrderEvent.class))
-                .thenThrow(mock(JsonProcessingException.class));
+                .thenThrow(JsonMappingException.class);
 
-        consumer.sendMockEmail(PAYLOAD, acknowledgment);
+        assertThrows(JsonMappingException.class , ()->consumer.sendMockEmail(PAYLOAD, acknowledgment));
 
-        verify(acknowledgment).acknowledge();
         verifyNoInteractions(idempotencyService);
+        verifyNoInteractions(acknowledgment);
     }
 
     @Test
