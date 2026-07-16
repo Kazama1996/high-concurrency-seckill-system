@@ -49,11 +49,11 @@ class NotificationIdempotencyServiceTest {
     }
 
     @Test
-    void markProcessed_setsKeyWithExpectedValueAndTtl() {
+    void tryMarkProcessed_setsKeyWithExpectedValueAndTtl() {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 
-        idempotencyService.markProcessed(ORDER_ID);
+        idempotencyService.tryMarkProcessed(ORDER_ID);
 
-        verify(valueOperations).set(EXPECTED_KEY, "1", Duration.ofHours(24));
+        verify(valueOperations).setIfAbsent(EXPECTED_KEY, "1", Duration.ofHours(24));
     }
 }
