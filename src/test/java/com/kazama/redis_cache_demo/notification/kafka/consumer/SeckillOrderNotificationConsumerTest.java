@@ -56,7 +56,7 @@ class SeckillOrderNotificationConsumerTest {
         consumer.sendMockEmail(PAYLOAD, acknowledgment);
 
         verify(acknowledgment).acknowledge();
-        verify(idempotencyService, never()).markProcessed(any());
+        verify(idempotencyService, never()).tryMarkProcessed(any());
     }
 
     @Test
@@ -68,7 +68,7 @@ class SeckillOrderNotificationConsumerTest {
         consumer.sendMockEmail(PAYLOAD, acknowledgment);
 
         InOrder inOrder = inOrder(idempotencyService, acknowledgment);
-        inOrder.verify(idempotencyService).markProcessed(event.id());
+        inOrder.verify(idempotencyService).tryMarkProcessed(event.id());
         inOrder.verify(acknowledgment).acknowledge();
     }
 }
