@@ -24,15 +24,11 @@ public class SeckillOrderNotificationConsumer {
             topics = KafkaTopicConfig.ORDER_NOTIFICATION_TOPIC_NAME,
             groupId = "order-notification",
             containerFactory = "stringKafkaListenerContainerFactory"
-    )    public void sendMockEmail(String payload, Acknowledgment acknowledgment) {
+    )    public void sendMockEmail(String payload, Acknowledgment acknowledgment) throws JsonProcessingException {
         SeckillOrderEvent orderEvent;
-        try {
-            orderEvent = objectMapper.readValue(payload, SeckillOrderEvent.class);
-        } catch (JsonProcessingException e) {
-            log.error("Failed to deserialize notification payload, skip. payload: {}", payload, e);
-            acknowledgment.acknowledge();
-            return;
-        }
+
+        orderEvent = objectMapper.readValue(payload, SeckillOrderEvent.class);
+
 
         if (idempotencyService.isAlreadyProcessed(orderEvent.id())) {
             log.info("Duplicate notification for orderId: {}, skip", orderEvent.id());

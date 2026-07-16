@@ -1,5 +1,6 @@
 package com.kazama.redis_cache_demo.infra.config;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,6 +13,7 @@ import org.springframework.kafka.core.KafkaOperations;
 import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.support.serializer.DeserializationException;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.util.backoff.FixedBackOff;
 
@@ -75,10 +77,20 @@ public class KafkaConsumerConfig {
      * between attempts), then publishes the record to its "{topic}.DLT" topic and lets the
      * container advance past it — so a permanently failing record can't block the partition
      * forever, but a transient failure still gets retried instead of being silently dropped.
+     *
+     * Exceptions registered as not-retryable (e.g. JsonProcessingException, thrown on
+     * malformed/unparseable payloads) skip the retry loop entirely and are published to the
+     * DLT immediately, since retrying a permanently malformed payload cannot succeed.
      */
     private DefaultErrorHandler retryWithDeadLetterErrorHandler(KafkaOperations<?, ?> template) {
-        return new DefaultErrorHandler(
+
+        DefaultErrorHandler handler = new DefaultErrorHandler(
                 new DeadLetterPublishingRecoverer(template),
-                new FixedBackOff(RETRY_INTERVAL_MS, MAX_RETRY_ATTEMPTS));
+                new FixedBackOff(RETRY_INTERVAL_MS, MAX_RETRY_ATTEMPTS)
+        );
+
+        handler.addNotRetryableExceptions(JsonProcessingException.class);
+
+        return handler;
     }
 }
