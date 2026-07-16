@@ -42,7 +42,7 @@ public class SeckillOrderNotificationConsumer {
         // container's error handler retries/dead-letters it instead of acknowledging or
         // marking a notification that was never actually sent
 
-        idempotencyService.markProcessed(orderEvent.id());
+        idempotencyService.tryMarkProcessed(orderEvent.id());
         acknowledgment.acknowledge();
     }
 }
