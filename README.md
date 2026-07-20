@@ -151,7 +151,7 @@ The `getProductById` method defends against all three classic cache failure mode
 
 The Outbox Pattern solves this by writing the event to an `outbox` table in the same DB transaction as the order. A Quartz scheduler polls for `PENDING` records every 5 seconds and relays them to Kafka, marking each as `SENT` on success or `FAILED` for retry on the next cycle. This guarantees at-least-once delivery using only DB atomicity — no distributed transaction required.
 
-> **Known gap**: the current implementation is at-least-once. If the scheduler crashes between a successful publish and marking the record `SENT`, the Consumer may receive a duplicate. Idempotent consumption via an `eventId` + processed-events table is the standard mitigation.
+> **At-least-once delivery**: if the scheduler crashes between a successful publish and marking the record `SENT`, the Consumer may receive a duplicate. This is mitigated by consumer-side idempotency: `NotificationIdempotencyService` tracks processed order IDs in Redis (`seckill:notification:processed:{orderId}`, 24h TTL) and skips reprocessing on redelivery.
 
 ---
 
