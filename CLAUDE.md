@@ -473,3 +473,15 @@ docs: finalize README with load test results and observations
    git push origin feature/your-feature
 ```
 5. Merge via GitHub PR (squash or merge commit — both used in this repo)
+
+---
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues (Kazama1996/high-concurrency-seckill-system), via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
