@@ -55,17 +55,6 @@ class OrderCreatedOutboxRepositoryIntegrationTest extends AbstractPostgresIntegr
     }
 
     @Test
-    void alreadyPastMax_retryCountTenToEleven_staysDeadLetter() {
-        OrderCreatedOutbox outbox = seed(OutboxStatus.DEAD_LETTER, 10);
-
-        repository.bulkMarkFailed(List.of(outbox.getId()), MAX_RETRY);
-
-        OrderCreatedOutbox updated = repository.findById(outbox.getId()).orElseThrow();
-        assertThat(updated.getRetryCount()).isEqualTo(11);
-        assertThat(updated.getStatus()).isEqualTo(OutboxStatus.DEAD_LETTER);
-    }
-
-    @Test
     void mixedBatch_eachRowLandsOnItsOwnOutcome() {
         OrderCreatedOutbox justUnder = seed(OutboxStatus.FAILED, 3);
         OrderCreatedOutbox exact = seed(OutboxStatus.FAILED, 4);
@@ -80,21 +69,27 @@ class OrderCreatedOutboxRepositoryIntegrationTest extends AbstractPostgresIntegr
                 .isEqualTo(OutboxStatus.DEAD_LETTER);
         assertThat(repository.findById(pastMax.getId()).orElseThrow().getStatus())
                 .isEqualTo(OutboxStatus.DEAD_LETTER);
+        assertThat(repository.findById(pastMax.getId()).orElseThrow().getRetryCount())
+                .isEqualTo(10);
     }
 
-    // Known gap: bulkMarkFailed's WHERE clause is only `id IN :ids`, with no status guard, so
-    // calling it again on a row already in the terminal DEAD_LETTER state still increments
-    // retry_count further. This documents existing behavior; it is not asserting a spec
-    // requirement, and the gap itself is intentionally left unfixed here (see plan discussion).
+    // bulkMarkFailed's WHERE clause now filters on both id and status <> 'DEAD_LETTER' (not
+    // status = 'FAILED': both real call sites -- OutboxPollingJob on stuck-SENDING rows, and
+    // OutboxPublisherService on a row just flipped to SENDING before dispatch -- invoke this
+    // with the row's actual status being SENDING, not FAILED, so a status = 'FAILED' guard
+    // would silently no-op the entire retry/dead-letter mechanism). Excluding only the terminal
+    // DEAD_LETTER state guards against retry_count being incremented indefinitely once a row
+    // has reached its terminal state, without touching the real SENDING -> FAILED/DEAD_LETTER
+    // transition.
     @Test
-    void bulkMarkFailed_calledAgainOnDeadLetterRow_knownGap_stillIncrementsRetryCount() {
-        OrderCreatedOutbox outbox = seed(OutboxStatus.DEAD_LETTER, 5);
+    void bulkMarkFailed_onDeadLetterRow_isNoOp() {
+        OrderCreatedOutbox outbox = seed(OutboxStatus.DEAD_LETTER, 10);
 
         repository.bulkMarkFailed(List.of(outbox.getId()), MAX_RETRY);
 
-        OrderCreatedOutbox updated = repository.findById(outbox.getId()).orElseThrow();
-        assertThat(updated.getRetryCount()).isEqualTo(6);
-        assertThat(updated.getStatus()).isEqualTo(OutboxStatus.DEAD_LETTER);
+        OrderCreatedOutbox unchanged = repository.findById(outbox.getId()).orElseThrow();
+        assertThat(unchanged.getRetryCount()).isEqualTo(10);
+        assertThat(unchanged.getStatus()).isEqualTo(OutboxStatus.DEAD_LETTER);
     }
 
     @Test
