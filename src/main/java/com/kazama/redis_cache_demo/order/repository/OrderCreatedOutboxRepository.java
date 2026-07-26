@@ -29,7 +29,7 @@ public interface OrderCreatedOutboxRepository extends JpaRepository<OrderCreated
     UPDATE order_created_outbox
         SET retry_count = retry_count+1,
             status = CASE WHEN retry_count +1 >= :maxRetry THEN 'DEAD_LETTER' ELSE 'FAILED' END
-        WHERE id IN :ids 
+        WHERE id IN :ids AND status <> 'DEAD_LETTER'
     """,nativeQuery = true)
     void bulkMarkFailed(@Param("ids") List<Long> ids , @Param("maxRetry") int maxRetry);
 
