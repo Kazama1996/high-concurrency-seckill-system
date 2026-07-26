@@ -2,19 +2,21 @@ package com.kazama.redis_cache_demo;
 
 import org.junit.jupiter.api.Tag;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
-@Testcontainers
 @Tag("integration")
 public abstract class AbstractRedisIntegrationTest {
 
     protected static final String REDIS_TEST_PASSWORD = "testpassword";
 
-    @Container
+    // Deliberately NOT a @Testcontainers-managed @Container field -- see the reasoning in
+    // AbstractPostgresIntegrationTest. Managed as a plain singleton instead.
     static final GenericContainer<?> redis = new GenericContainer<>("redis:7-alpine")
             .withExposedPorts(6379)
             .withCommand("redis-server", "--requirepass", REDIS_TEST_PASSWORD);
+
+    static {
+        redis.start();
+    }
 
     protected static String redisAddress() {
         return "redis://" + redis.getHost() + ":" + redis.getMappedPort(6379);
