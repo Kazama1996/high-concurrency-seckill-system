@@ -33,8 +33,6 @@ class OutboxPollingJobTest {
 
     @InjectMocks private OutboxPollingJob outboxPollingJob;
 
-    private static final List<OutboxStatus> RETRYABLE_STATUSES = List.of(OutboxStatus.PENDING, OutboxStatus.FAILED);
-
     private OrderCreatedOutbox outbox(Long id) {
         return OrderCreatedOutbox.builder()
                 .id(id).orderId(id).topicName("topic").payload("{}")
@@ -45,7 +43,7 @@ class OutboxPollingJobTest {
 
     @Test
     void execute_allSourcesEmpty_doesNothing() throws JobExecutionException {
-        when(outboxRepository.findTop500ByStatusInOrderByCreatedAtAsc(RETRYABLE_STATUSES)).thenReturn(List.of());
+        when(outboxRepository.claimPendingBatch(anyInt())).thenReturn(List.of());
         when(outboxRepository.findByStatusAndUpdatedAtBefore(eq(OutboxStatus.SENDING),any(Instant.class))).thenReturn(List.of());
 
         outboxPollingJob.execute(context);
@@ -58,29 +56,28 @@ class OutboxPollingJobTest {
     @Test
     void execute_stuckSendingFound_marksFailedBatch() throws JobExecutionException {
         OrderCreatedOutbox stuck = outbox(1L);
-        when(outboxRepository.findTop500ByStatusInOrderByCreatedAtAsc(RETRYABLE_STATUSES)).thenReturn(List.of());
+        when(outboxRepository.claimPendingBatch(anyInt())).thenReturn(List.of());
         when(outboxRepository.findByStatusAndUpdatedAtBefore(eq(OutboxStatus.SENDING), any(Instant.class)))
                 .thenReturn(List.of(stuck));
 
         outboxPollingJob.execute(context);
 
         verify(statusUpdateService).markFailedBatch(List.of(1L), OutboxStatusUpdateService.MAX_RETRY_ATTEMPTS);
-        verify(statusUpdateService, never()).markAsSending(any());
         verifyNoInteractions(outboxPublisherService);
 
     }
 
     @Test
-    void execute_nonEmptyTargets_marksSendingBeforePublishing() throws JobExecutionException {
+    void execute_nonEmptyTargets_claimsBeforePublishing() throws JobExecutionException {
         OrderCreatedOutbox target = outbox(2L);
-        when(outboxRepository.findTop500ByStatusInOrderByCreatedAtAsc(RETRYABLE_STATUSES)).thenReturn(List.of(target));
+        when(outboxRepository.claimPendingBatch(anyInt())).thenReturn(List.of(target));
         when(outboxRepository.findByStatusAndUpdatedAtBefore(eq(OutboxStatus.SENDING), any(Instant.class)))
                 .thenReturn(List.of());
 
         outboxPollingJob.execute(context);
 
-        InOrder inOrder = inOrder(statusUpdateService, outboxPublisherService);
-        inOrder.verify(statusUpdateService).markAsSending(List.of(2L));
+        InOrder inOrder = inOrder(outboxRepository, outboxPublisherService);
+        inOrder.verify(outboxRepository).claimPendingBatch(anyInt());
         inOrder.verify(outboxPublisherService).publish(target);
     }
 
@@ -88,7 +85,7 @@ class OutboxPollingJobTest {
     void execute_multipleTargets_publishesEachExactlyOnce() throws JobExecutionException {
         OrderCreatedOutbox target1 = outbox(2L);
         OrderCreatedOutbox target2 = outbox(3L);
-        when(outboxRepository.findTop500ByStatusInOrderByCreatedAtAsc(RETRYABLE_STATUSES))
+        when(outboxRepository.claimPendingBatch(anyInt()))
                 .thenReturn(List.of(target1, target2));
         when(outboxRepository.findByStatusAndUpdatedAtBefore(eq(OutboxStatus.SENDING), any(Instant.class)))
                 .thenReturn(List.of());
@@ -104,20 +101,19 @@ class OutboxPollingJobTest {
     void execute_stuckSendingAndTargetsBothPresent_bothBranchesFire() throws JobExecutionException {
         OrderCreatedOutbox stuck = outbox(1L);
         OrderCreatedOutbox target = outbox(2L);
-        when(outboxRepository.findTop500ByStatusInOrderByCreatedAtAsc(RETRYABLE_STATUSES)).thenReturn(List.of(target));
+        when(outboxRepository.claimPendingBatch(anyInt())).thenReturn(List.of(target));
         when(outboxRepository.findByStatusAndUpdatedAtBefore(eq(OutboxStatus.SENDING), any(Instant.class)))
                 .thenReturn(List.of(stuck));
 
         outboxPollingJob.execute(context);
 
         verify(statusUpdateService).markFailedBatch(List.of(1L), OutboxStatusUpdateService.MAX_RETRY_ATTEMPTS);
-        verify(statusUpdateService).markAsSending(List.of(2L));
         verify(outboxPublisherService).publish(target);
     }
 
     @Test
     void execute_computesStuckSendingCutoffAsFiveMinutesAgo() throws JobExecutionException {
-        when(outboxRepository.findTop500ByStatusInOrderByCreatedAtAsc(RETRYABLE_STATUSES)).thenReturn(List.of());
+        when(outboxRepository.claimPendingBatch(anyInt())).thenReturn(List.of());
         ArgumentCaptor<Instant> cutoffCaptor = ArgumentCaptor.forClass(Instant.class);
         when(outboxRepository.findByStatusAndUpdatedAtBefore(eq(OutboxStatus.SENDING), cutoffCaptor.capture()))
                 .thenReturn(List.of());
