@@ -269,7 +269,7 @@ POST /api/v1/seckill/deduct
   ├─ 1. SeckillActivityCacheService.getActivity(activityId)
   │       Redis GET seckill:activity:{id}
   │       MISS → SeckillActivityService.rewarming()
-  │               └─ Bloom filter check → Redisson RLock (3s wait / 10s lease)
+  │               └─ Bloom filter check → Redisson RLock (3s wait, watchdog-renewed lease)
   │                   └─ Double-check cache → load from DB → write back to Redis
   │       NULL_HIT → throw 404
   │
@@ -315,7 +315,7 @@ POST /api/v1/seckill/deduct
 | `seckill:activity:{activityId}` | String (JSON) | Until activity ends | Cached SeckillActivityDTO |
 | `seckill:stock:{activityId}` | String (integer) | Until activity ends | Available stock counter |
 | `seckill:orders:{activityId}` | Set | Until activity ends | Set of winning userIds (idempotency) |
-| `seckill:activity:rewarm:{activityId}` | Lock | 10s lease | Distributed lock for cache rewarming |
+| `seckill:activity:rewarm:{activityId}` | Lock | 30s lease, watchdog-renewed | Distributed lock for cache rewarming |
 | `product:{productId}` | String (JSON) | 3600s + random [0,300)s | Cached ProductDTO |
 | `product:null:{productId}` | String | 120s | Null sentinel (cache penetration guard) |
 | `seckill:user:{uid}:activity:{aid}` | ZSet | 60s | Sliding window rate limit entries |

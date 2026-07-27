@@ -45,7 +45,6 @@ public class ProductService {
     private final CircuitBreaker productDBCircuitBreaker;
 
     private static final long LOCK_WAIT_TIME = 3;  // 等待鎖的最大時間（秒）
-    private static final long LOCK_LEASE_TIME = 10;  // 鎖的持有時間（秒）
 
     private static final long MAX_RETRIES = 5;
     private static final long RETRY_DELAY_BASE = 150;
@@ -95,7 +94,7 @@ public class ProductService {
        for(int retry =0 ; retry<MAX_RETRIES; retry++){
 
            try{
-               boolean acquired = lock.tryLock(LOCK_WAIT_TIME , LOCK_LEASE_TIME , TimeUnit.SECONDS);
+               boolean acquired = lock.tryLock(LOCK_WAIT_TIME , TimeUnit.SECONDS);
                if(acquired){
                    try{
                        CacheResult<ProductDTO> productDTOCacheResult = productCacheService.get(productId);
