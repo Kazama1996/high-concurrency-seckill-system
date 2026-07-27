@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -122,7 +123,11 @@ class OrderCreatedOutboxClaimPendingBatchIntegrationTest extends AbstractPostgre
             Set<Long> set1 = new HashSet<>(claimedByThread1);
             Set<Long> set2 = new HashSet<>(claimedByThread2);
 
-            assertThat(set1).doesNotContainAnyElementsOf(set2);
+            // Collections.disjoint (not AssertJ's doesNotContainAnyElementsOf, which throws on an
+            // empty argument): under SKIP LOCKED it's a valid outcome for one thread to claim all
+            // rows and the other to claim none, since SKIP LOCKED skips already-locked rows rather
+            // than waiting to split the batch.
+            assertThat(Collections.disjoint(set1, set2)).isTrue();
 
             Set<Long> union = new HashSet<>(set1);
             union.addAll(set2);
