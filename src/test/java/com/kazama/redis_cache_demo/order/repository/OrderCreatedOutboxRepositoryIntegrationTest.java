@@ -1,5 +1,6 @@
 package com.kazama.redis_cache_demo.order.repository;
 
+import com.kazama.common.snowflake.SnowflakeGenerator;
 import com.kazama.redis_cache_demo.AbstractPostgresIntegrationTest;
 import com.kazama.redis_cache_demo.infra.outbox.enums.OutboxStatus;
 import com.kazama.redis_cache_demo.order.entity.OrderCreatedOutbox;
@@ -7,23 +8,22 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class OrderCreatedOutboxRepositoryIntegrationTest extends AbstractPostgresIntegrationTest {
 
     private static final int MAX_RETRY = 5;
-    private static final AtomicLong ID_SEQ = new AtomicLong(3_000_000);
-    private static final AtomicLong ORDER_ID_SEQ = new AtomicLong(3_000_000);
 
     @Autowired
     private OrderCreatedOutboxRepository repository;
 
+    @Autowired
+    private SnowflakeGenerator snowflakeGenerator;
+
     private OrderCreatedOutbox seed(OutboxStatus status, int retryCount) {
         OrderCreatedOutbox outbox = OrderCreatedOutbox.builder()
-                .id(ID_SEQ.getAndIncrement())
-                .orderId(ORDER_ID_SEQ.getAndIncrement())
+                .orderId(snowflakeGenerator.nextId())
                 .topicName("order.created")
                 .payload("{}")
                 .status(status)
