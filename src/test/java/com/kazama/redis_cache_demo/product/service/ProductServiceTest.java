@@ -110,7 +110,7 @@ class ProductServiceTest {
                 .thenReturn(CacheResult.miss())
                 .thenReturn(CacheResult.miss());
         when(lockService.getLock(anyString())).thenReturn(rLock);
-        when(rLock.tryLock(anyLong(), anyLong(), any(TimeUnit.class))).thenReturn(true);
+        when(rLock.tryLock(anyLong(), any(TimeUnit.class))).thenReturn(true);
         when(rLock.isHeldByCurrentThread()).thenReturn(true);
         when(productDBCircuitBreaker.tryAcquirePermission()).thenReturn(true);
         when(productRepository.findProductDTOById(PRODUCT_ID)).thenReturn(Optional.of(dto));
@@ -129,7 +129,7 @@ class ProductServiceTest {
                 .thenReturn(CacheResult.miss())
                 .thenReturn(CacheResult.miss());
         when(lockService.getLock(anyString())).thenReturn(rLock);
-        when(rLock.tryLock(anyLong(), anyLong(), any(TimeUnit.class))).thenReturn(true);
+        when(rLock.tryLock(anyLong(), any(TimeUnit.class))).thenReturn(true);
         when(rLock.isHeldByCurrentThread()).thenReturn(true);
         when(productDBCircuitBreaker.tryAcquirePermission()).thenReturn(true);
         when(productRepository.findProductDTOById(PRODUCT_ID)).thenReturn(Optional.empty());
@@ -149,7 +149,7 @@ class ProductServiceTest {
                 .thenReturn(CacheResult.miss())
                 .thenReturn(CacheResult.miss());
         when(lockService.getLock(anyString())).thenReturn(rLock);
-        when(rLock.tryLock(anyLong(), anyLong(), any(TimeUnit.class))).thenReturn(true);
+        when(rLock.tryLock(anyLong(), any(TimeUnit.class))).thenReturn(true);
         when(rLock.isHeldByCurrentThread()).thenReturn(true);
         when(productDBCircuitBreaker.tryAcquirePermission()).thenReturn(false);
 
@@ -170,7 +170,7 @@ class ProductServiceTest {
                 .thenReturn(CacheResult.miss())      // first check before acquiring lock
                 .thenReturn(CacheResult.hit(dto));   // second check after acquiring lock
         when(lockService.getLock(anyString())).thenReturn(rLock);
-        when(rLock.tryLock(anyLong(), anyLong(), any(TimeUnit.class))).thenReturn(true);
+        when(rLock.tryLock(anyLong(), any(TimeUnit.class))).thenReturn(true);
         when(rLock.isHeldByCurrentThread()).thenReturn(true);
 
         ProductDTO result = productService.getProductById(PRODUCT_ID);
@@ -189,7 +189,7 @@ class ProductServiceTest {
                 .thenReturn(CacheResult.miss())   // getProductById 外层第一次查
                 .thenReturn(CacheResult.hit(dto)); // retry=0 进入 else 分支,waitWithBackoff 后查的那
         when(lockService.getLock(anyString())).thenReturn(rLock);
-        when(rLock.tryLock(anyLong() , anyLong(), any(TimeUnit.class))).thenReturn(false);
+        when(rLock.tryLock(anyLong(), any(TimeUnit.class))).thenReturn(false);
         when(randomGenerator.nextLong(anyLong())).thenReturn(0L);
 
 
@@ -198,7 +198,7 @@ class ProductServiceTest {
         assertSame(dto , result);
 
         verifyNoInteractions(productRepository);
-        verify(rLock, times(1)).tryLock(anyLong(), anyLong(), any(TimeUnit.class));
+        verify(rLock, times(1)).tryLock(anyLong(), any(TimeUnit.class));
         verify(sleeper).sleep(150L);
 
     }
@@ -210,13 +210,13 @@ class ProductServiceTest {
         when(productBloomFilterService.mightContain(PRODUCT_ID)).thenReturn(true);
         when(productCacheService.get(PRODUCT_ID)).thenReturn(CacheResult.miss());
         when(lockService.getLock(anyString())).thenReturn(rLock);
-        when(rLock.tryLock(anyLong(),anyLong(),any(TimeUnit.class))).thenReturn(false);
+        when(rLock.tryLock(anyLong(), any(TimeUnit.class))).thenReturn(false);
         when(randomGenerator.nextLong(anyLong())).thenReturn(0L);
 
 
         assertThrows(RuntimeException.class ,()-> productService.getProductById(PRODUCT_ID));
 
-        verify(rLock, times(5)).tryLock(anyLong(), anyLong(), any(TimeUnit.class));
+        verify(rLock, times(5)).tryLock(anyLong(), any(TimeUnit.class));
         verify(sleeper, times(5)).sleep(delayCaptor.capture());
         verify(rLock, never()).unlock();
 
