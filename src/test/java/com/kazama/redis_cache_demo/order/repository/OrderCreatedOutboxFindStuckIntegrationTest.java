@@ -1,5 +1,6 @@
 package com.kazama.redis_cache_demo.order.repository;
 
+import com.kazama.common.snowflake.SnowflakeGenerator;
 import com.kazama.redis_cache_demo.AbstractPostgresIntegrationTest;
 import com.kazama.redis_cache_demo.infra.outbox.enums.OutboxStatus;
 import com.kazama.redis_cache_demo.order.entity.OrderCreatedOutbox;
@@ -11,14 +12,10 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class OrderCreatedOutboxFindStuckIntegrationTest extends AbstractPostgresIntegrationTest {
-
-    private static final AtomicLong ID_SEQ = new AtomicLong(4_000_000);
-    private static final AtomicLong ORDER_ID_SEQ = new AtomicLong(4_000_000);
 
     @Autowired
     private OrderCreatedOutboxRepository repository;
@@ -26,13 +23,15 @@ class OrderCreatedOutboxFindStuckIntegrationTest extends AbstractPostgresIntegra
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private SnowflakeGenerator snowflakeGenerator;
+
     // Truncated to microseconds (Postgres timestamptz precision) so the value written via raw
     // JDBC and the value bound into the repository query compare exactly, with no sub-microsecond
     // rounding artifacts affecting the strict `<` boundary being tested.
     private OrderCreatedOutbox seedWithUpdatedAt(OutboxStatus status, Instant updatedAt) {
         OrderCreatedOutbox outbox = OrderCreatedOutbox.builder()
-                .id(ID_SEQ.getAndIncrement())
-                .orderId(ORDER_ID_SEQ.getAndIncrement())
+                .orderId(snowflakeGenerator.nextId())
                 .topicName("order.created")
                 .payload("{}")
                 .status(status)
