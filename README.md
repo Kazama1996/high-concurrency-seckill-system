@@ -83,22 +83,24 @@ Call **Auto Init** under the `Data Init` folder. The response includes `productI
 
 **6. Create a seckill activity**
 
-Call **Create Seckill Activity** under the `Seckill Activity` folder with the following body:
+Call **Create Seckill Activities** under the `Seckill Activity` folder. The endpoint takes an array of activities — a single-element array is fine for this walkthrough:
 
 ```json
-{
-  "productId": <productId from step 5>,
-  "seckillPrice": 99,
-  "totalStock": 100,
-  "maxQuantityPerOrder": 2,
-  "dateRange": {
-    "startTime": <2 minutes from now, e.g. 2026-04-04T12:02:00+08:00>,
-    "endTime": <at least 1 hour from now, e.g. 2026-04-04T13:00:00+08:00>
+[
+  {
+    "productId": <productId from step 5>,
+    "seckillPrice": 99,
+    "totalStock": 100,
+    "maxQuantityPerOrder": 2,
+    "dateRange": {
+      "startTime": <2 minutes from now, e.g. 2026-04-04T12:02:00+08:00>,
+      "endTime": <at least 1 hour from now, e.g. 2026-04-04T13:00:00+08:00>
+    }
   }
-}
+]
 ```
 
-> `startTime` must be a future time. Set it 2 minutes ahead — cache warming triggers 1 minute before start. Set `endTime` at least 1 hour out to keep the Redis cache valid throughout testing. The `id` field in the response is the `activityId` used in the next step.
+> `startTime` must be a future time. Set it 2 minutes ahead — cache warming triggers 1 minute before start. Set `endTime` at least 1 hour out to keep the Redis cache valid throughout testing. The `id` field of the first element in the response array is the `activityId` used in the next step.
 
 **7. Submit a seckill request**
 
