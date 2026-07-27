@@ -17,11 +17,6 @@ public class OutboxStatusUpdateService {
     private final OrderCreatedOutboxRepository orderCreatedOutboxRepository;
 
     @Transactional
-    public void markAsSending(List<Long> ids) {
-        orderCreatedOutboxRepository.bulkUpdateStatus(ids, OutboxStatus.SENDING);
-    }
-
-    @Transactional
     public void markSent(Long id) {
         orderCreatedOutboxRepository.bulkUpdateStatus(List.of(id), OutboxStatus.SENT);
     }

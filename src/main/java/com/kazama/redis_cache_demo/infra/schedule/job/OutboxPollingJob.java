@@ -15,7 +15,6 @@ import org.quartz.JobExecutionException;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -30,7 +29,7 @@ public class OutboxPollingJob implements Job {
 
     private final OutboxStatusUpdateService statusUpdateService;
 
-    private static final List<OutboxStatus> RETRYABLE_STATUSES = List.of(OutboxStatus.PENDING, OutboxStatus.FAILED);
+    private static final int BATCH_LIMIT = 500;
     private static final Duration SENDING_TIMEOUT = Duration.ofMinutes(5);
 
 
@@ -38,7 +37,7 @@ public class OutboxPollingJob implements Job {
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
 
-        List<OrderCreatedOutbox> targets = new ArrayList<>(orderCreatedOutboxRepository.findTop500ByStatusInOrderByCreatedAtAsc(RETRYABLE_STATUSES));
+        List<OrderCreatedOutbox> targets = orderCreatedOutboxRepository.claimPendingBatch(BATCH_LIMIT);
 
         List<OrderCreatedOutbox> stuckSending = orderCreatedOutboxRepository
                 .findByStatusAndUpdatedAtBefore(OutboxStatus.SENDING, Instant.now().minus(SENDING_TIMEOUT));
@@ -51,9 +50,6 @@ public class OutboxPollingJob implements Job {
         }
 
         if (targets.isEmpty()) return;
-
-        List<Long> ids = targets.stream().map(OrderCreatedOutbox::getId).toList();
-        statusUpdateService.markAsSending(ids);
 
         targets.forEach(outboxPublisherService::publish);
 
