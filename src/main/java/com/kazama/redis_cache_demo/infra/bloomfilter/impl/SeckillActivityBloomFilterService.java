@@ -1,5 +1,7 @@
 package com.kazama.redis_cache_demo.infra.bloomfilter.impl;
 
+import com.google.common.hash.Funnel;
+import com.google.common.hash.Funnels;
 import com.kazama.redis_cache_demo.infra.bloomfilter.AbstractBloomFilterService;
 import com.kazama.redis_cache_demo.seckill.repository.SeckillActivityRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -15,8 +17,7 @@ public class SeckillActivityBloomFilterService extends AbstractBloomFilterServic
 
     private final SeckillActivityRepository seckillActivityRepository;
 
-    public SeckillActivityBloomFilterService(RedissonClient redissonClient , SeckillActivityRepository seckillActivityRepository){
-        super(redissonClient);
+    public SeckillActivityBloomFilterService( SeckillActivityRepository seckillActivityRepository){
         this.seckillActivityRepository = seckillActivityRepository;
     }
 
@@ -32,7 +33,12 @@ public class SeckillActivityBloomFilterService extends AbstractBloomFilterServic
 
     @Override
     protected double getFalsePositiveRate() {
-        return 0.0;
+        return 0.001;
+    }
+
+    @Override
+    protected Funnel<Long> getFunnel() {
+        return Funnels.longFunnel();
     }
 
     @Override
