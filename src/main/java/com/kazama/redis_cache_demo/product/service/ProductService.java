@@ -54,9 +54,9 @@ public class ProductService {
     public ProductDTO getProductById(Long productId)  {
         log.info("QUERY product: {}" , productId);
 
-//        if(!productBloomFilterService.mightContain(productId)){
-//            return null ;
-//        }
+        if(!productBloomFilterService.mightContain(productId)){
+            return null ;
+        }
 
         CacheResult<ProductDTO> productDTOCacheResult = productCacheService.get(productId);
 
