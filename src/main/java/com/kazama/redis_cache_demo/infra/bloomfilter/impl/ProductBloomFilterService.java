@@ -1,5 +1,7 @@
 package com.kazama.redis_cache_demo.infra.bloomfilter.impl;
 
+import com.google.common.hash.Funnel;
+import com.google.common.hash.Funnels;
 import com.kazama.redis_cache_demo.infra.bloomfilter.AbstractBloomFilterService;
 import com.kazama.redis_cache_demo.product.repository.ProductRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -14,8 +16,7 @@ public class ProductBloomFilterService extends AbstractBloomFilterService<Long> 
 
     private final ProductRepository productRepository;
 
-    public ProductBloomFilterService(RedissonClient redissonClient , ProductRepository productRepository){
-        super(redissonClient);
+    public ProductBloomFilterService(ProductRepository productRepository){
         this.productRepository = productRepository;
     }
 
@@ -31,7 +32,12 @@ public class ProductBloomFilterService extends AbstractBloomFilterService<Long> 
 
     @Override
     protected double getFalsePositiveRate() {
-        return 0.0;
+        return 0.001;
+    }
+
+    @Override
+    protected Funnel<Long> getFunnel() {
+        return Funnels.longFunnel();
     }
 
     @Override

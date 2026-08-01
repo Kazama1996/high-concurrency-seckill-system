@@ -37,7 +37,7 @@ dependencies {
 	testImplementation 'org.testcontainers:postgresql'
 	testImplementation 'org.testcontainers:kafka'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-	implementation 'com.github.Kazama1996:common-spring-boot-starter:v1.0.0'
+	implementation 'com.github.Kazama1996:common-spring-boot-starter:v1.0.1'
 	implementation('com.github.javafaker:javafaker:1.0.2') {
 		exclude group: 'org.yaml', module: 'snakeyaml'
 	}
@@ -48,6 +48,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 
 	implementation 'org.springframework.kafka:spring-kafka'
+	implementation 'com.google.guava:guava:33.2.1-jre'
+
 }
 
 tasks.named('test') {
