@@ -208,45 +208,84 @@ The **double-check** on lock acquisition further reduces unnecessary DB queries:
 
 ## Load Test Results
 
-Load tests were conducted using Apache JMeter, with all services running in Docker on a local machine (Apple M4 Pro, 48GB RAM).
+Load tests were conducted using Apache JMeter, with all services running in Docker on a local machine (Apple M4 Pro(14 cores), 48GB RAM).
 > Note: Docker on macOS runs through a Linux virtualization layer, which adds overhead compared to native Linux deployment. Results reflect local development environment performance.
 
 ---
 
-### getProductById — Cache hit performance
+### getProductById — Cache hit performance & Bloom filter architecture fix
 
-2,000 concurrent users hitting the product query endpoint. After an initial cache miss populates Redis, subsequent requests are served entirely from cache — no further DB queries involved.
+Tests use a duration-based steady-state design (2,000 concurrent users, 15s ramp-up, 60s duration), run on Docker CPU limit 14 cores, with all services (app / postgres / redis / kafka) containerized.
 
-| Metric | Value |
-|---|---|
-| Concurrent Users | 2,000 |
-| Throughput | 1,021 req/sec |
-| Avg Latency | 4.56ms |
-| 99th Percentile | 51.99ms |
-| Error % | 0% |
+During testing, `productBloomFilterService` was found to use Redisson's `RBloomFilter` (a distributed Bloom filter backed by Redis), 
+meaning every `mightContain()` call required a network round trip and competed with the cache service for the same connection pool 
+— a 2.6x throughput regression traced back to this single component. 
+Replacing it with a local, in-JVM Guava `BloomFilter` (same public interface, no caller changes needed) resolved this, 
+and was validated from two angles:
 
-![getProductById JMeter Report](docs/images/jmeter-get-product.png)
+- **Cache-hit throughput** improved ~5.2x
+- **Cache-penetration defense** (flood of never-before-seen invalid product IDs): throughput with the local Bloom filter was 2.69x higher than without it. Logs confirmed the DB connection pool and circuit breaker stayed healthy throughout — the gap is purely the added latency of a real DB round trip per request, not resource exhaustion
+
+**Cache-hit:**
+
+| Scenario | Throughput     | Avg Latency |
+|---|----------------|-------------|
+| Original Redisson `RBloomFilter` | 3064.6 req/s   | 563ms       |
+| Local Guava `BloomFilter` | 15962.12 req/s | 108.51ms    |
+| No Bloom filter (theoretical ceiling) | 16067.2 req/s  | 107ms       |
+
+
+**Local Guava BloomFilter Result — Dashboard**
+
+![Cache-hit throughput — Local Guava BloomFilter (JMeter Dashboard)](docs/images/test-res/getProductById/local_Bloom_filter-dashboard.png)
+
+
+**Verification: confirmed cache-hit path via logs** (`cache hit:` count ≈ total requests, `write into cache` occurred exactly once)
+
+![Docker log verification: cache-hit path confirmed (cache hit count ≈ total requests, DB write occurred only once)](docs/images/test-res/getProductById/cache-hit-log-verification.png)
+
+
+**Cache-penetration defense:**
+
+| Scenario | Throughput     | Avg Latency |
+|---|----------------|-------------|
+| With local Bloom filter | 25490.11 req/s | 67.92ms     |
+| Without Bloom filter | 9188.39 req/s  | 188.34ms    |
+
+
+**Cache-penetration defense — With Bloom filter**
+
+![Cache-penetration test — with local Bloom filter](docs/images/test-res/getProductById/with-bloom-filter.png)
+
+
+**Cache-penetration defense — Without Bloom filter**
+
+![Cache-penetration test — without Bloom filter](docs/images/test-res/getProductById/without-bloom-filter.png)
 
 ---
 
 ### deductStock — Oversell prevention under extreme concurrency
 
-10,000 concurrent users competing for 100 items (100:1 competition ratio). The Lua script atomic deduction ensures correctness — exactly 100 orders created, zero oversell.
+10,000 concurrent users compete for varying stock levels (10,000 / 1,000 / 100), simulating everything from
+guaranteed availability to a 100:1 scarcity scenario. The Lua script atomic deduction ensures correctness in
+all cases — confirmed orders always exactly match `totalStock`, zero oversell.
 
-| Concurrent Users | Total Stock | Throughput | Avg Latency | 99th Percentile | Error % | Oversell |
-|---|---|---|---|---|---|---|
-| 1,000 | 100 | 1,000 req/sec | 23ms | — | 90% | None |
-| 10,000 | 1,000 | 2,242 req/sec | 2,339ms | — | 90% | None |
-| 10,000 | 100 | 3,238 req/sec | 309ms | 1,422ms | 99% | None |
+| Concurrent Users | Total Stock | Throughput | Avg Latency | Error % |
+|---|---|---|---|---|
+| 10,000 | 10,000 | ~1,460–1,480 req/s | ~3,095–3,422ms | 0% |
+| 10,000 | 1,000 | ~2,400–3,200 req/s | ~210–545ms | 90% |
+| 10,000 | 100 | ~2,750–4,940 req/s | ~175–450ms | 99% |
 
-**Error % is expected behavior** — requests exceeding available stock are rejected with `409 Conflict`. Only the exact number of winning requests equal to `totalStock` result in confirmed orders, verified via Diagnostic API (`ordersCreated <= totalStock`, `isValid: true`).
+**Error % is expected behavior** — requests exceeding available stock are rejected with `409 Conflict`.
+Only the exact number of winning requests equal to `totalStock` result in confirmed orders, verified via
+Diagnostic API (`ordersCreated <= totalStock`, `isValid: true`).
 
-![deductStock JMeter Report](docs/images/jmeter-deduct-stock.png)
+**10,000 concurrent users vs 100 stock (100:1 scarcity)**
+
+![deductStock — 10,000 concurrent users vs 100 stock (99% expected rejection)](docs/images/test-res/deductStock/deductStock-100stocks.png)
+
+**10,000 concurrent users vs 10,000 stock (zero oversell verification)**
+
+![deductStock — 10,000 concurrent users vs 10,000 stock (0% error, zero oversell verified)](docs/images/test-res/deductStock/deductStock-10000stocks.png)
 
 ---
-
-### Observations
-
-- `getProductById` at 4.56ms avg confirms the Redis cache is effectively absorbing all read traffic after the initial warm-up — DB is not involved in steady-state reads.
-- `deductStock` latency under extreme load (10,000 users) is driven by Redis single-thread queuing — all Lua script executions are serialized. DB connection pool size has negligible impact at this concurrency level.
-- Zero oversell across all scenarios confirms the correctness of the atomic Lua stock deduction and idempotency check.
