@@ -218,8 +218,7 @@ Load tests were conducted using Apache JMeter, with all services running in Dock
 Tests use a duration-based steady-state design (2,000 concurrent users, 15s ramp-up, 60s duration), run on Docker CPU limit 14 cores, with all services (app / postgres / redis / kafka) containerized.
 
 During testing, `productBloomFilterService` was found to use Redisson's `RBloomFilter` (a distributed Bloom filter backed by Redis), 
-meaning every `mightContain()` call required a network round trip and competed with the cache service for the same connection pool 
-— a 2.6x throughput regression traced back to this single component. 
+meaning every `mightContain()` call required a network round trip and competed with the cache service for the same connection pool. 
 Replacing it with a local, in-JVM Guava `BloomFilter` (same public interface, no caller changes needed) resolved this, 
 and was validated from two angles:
 
